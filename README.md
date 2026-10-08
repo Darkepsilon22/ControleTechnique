@@ -86,6 +86,8 @@ Pour viser une autre adresse d'API : variable d'environnement `CT_API_URL`, par 
 
 La base de démonstration contient 25 points de contrôle, 120 propriétaires, 200 véhicules et 150 contrôles clôturés sur les six derniers mois.
 
+Un déroulé de démonstration en 3 minutes est décrit dans [docs/demo.md](docs/demo.md).
+
 ## Tests
 
 ```powershell
