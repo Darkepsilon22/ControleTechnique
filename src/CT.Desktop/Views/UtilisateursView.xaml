@@ -1,0 +1,55 @@
+<UserControl x:Class="CT.Desktop.Views.UtilisateursView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             DataContextChanged="ContexteModifie">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition Width="340"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Text="Utilisateurs" Style="{StaticResource TitrePage}"/>
+
+        <Border Grid.Row="1" Style="{StaticResource CarteStyle}" Margin="0,0,16,0">
+            <DataGrid ItemsSource="{Binding Utilisateurs}" SelectedItem="{Binding UtilisateurSelectionne}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Nom" Binding="{Binding NomComplet}" Width="*"/>
+                    <DataGridTextColumn Header="E-mail" Binding="{Binding Email}" Width="*"/>
+                    <DataGridTextColumn Header="Rôle" Binding="{Binding Role, Converter={StaticResource Libelle}}" Width="120"/>
+                    <DataGridCheckBoxColumn Header="Actif" Binding="{Binding Actif}" Width="60"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <StackPanel Grid.Row="1" Grid.Column="1">
+            <Border Style="{StaticResource CarteStyle}">
+                <StackPanel>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="Nouveau" Command="{Binding NouveauCommand}" Style="{StaticResource BoutonSecondaire}" Margin="0"/>
+                        <TextBlock Text="{Binding TitreFormulaire}" Style="{StaticResource TitreCarte}"/>
+                    </DockPanel>
+                    <TextBlock Text="Nom complet" Style="{StaticResource Etiquette}"/>
+                    <TextBox Text="{Binding NomComplet}"/>
+                    <TextBlock Text="E-mail" Style="{StaticResource Etiquette}"/>
+                    <TextBox Text="{Binding Email}"/>
+                    <TextBlock Text="Rôle" Style="{StaticResource Etiquette}"/>
+                    <ComboBox ItemsSource="{Binding Roles}" SelectedItem="{Binding Role}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate><TextBlock Text="{Binding Converter={StaticResource Libelle}}"/></DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Text="{Binding AideMotDePasse}" Style="{StaticResource Etiquette}" TextWrapping="Wrap"/>
+                    <PasswordBox x:Name="ChampMotDePasse" PasswordChanged="MotDePasseModifie"/>
+                    <CheckBox Content="Compte actif" IsChecked="{Binding Actif}" Margin="0,12,0,0"/>
+                    <Button Content="Enregistrer" Command="{Binding EnregistrerCommand}" Margin="0,16,0,0" HorizontalAlignment="Left"/>
+                </StackPanel>
+            </Border>
+            <TextBlock Text="{Binding Erreur}" Style="{StaticResource MessageErreur}"/>
+            <TextBlock Text="{Binding Message}" Style="{StaticResource MessageSucces}"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

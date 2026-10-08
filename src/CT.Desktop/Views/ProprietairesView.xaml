@@ -1,0 +1,65 @@
+<UserControl x:Class="CT.Desktop.Views.ProprietairesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition Width="340"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Text="Propriétaires" Style="{StaticResource TitrePage}"/>
+
+        <Border Grid.Row="1" Style="{StaticResource CarteStyle}" Margin="0,0,16,0">
+            <DockPanel>
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                    <Button DockPanel.Dock="Right" Content="Rechercher" Command="{Binding RechercherCommand}" Margin="8,0,0,0"/>
+                    <TextBox Text="{Binding Recherche, UpdateSourceTrigger=PropertyChanged}" ToolTip="Nom ou téléphone">
+                        <TextBox.InputBindings>
+                            <KeyBinding Key="Enter" Command="{Binding RechercherCommand}"/>
+                        </TextBox.InputBindings>
+                    </TextBox>
+                </DockPanel>
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,12,0,0">
+                    <Button Content="‹ Précédent" Command="{Binding PagePrecedenteCommand}" Style="{StaticResource BoutonSecondaire}"/>
+                    <Button Content="Suivant ›" Command="{Binding PageSuivanteCommand}" Style="{StaticResource BoutonSecondaire}"/>
+                    <TextBlock VerticalAlignment="Center" Foreground="{StaticResource TexteSecondaire}">
+                        <Run Text="Page"/> <Run Text="{Binding Page, Mode=OneWay}"/> <Run Text="/"/> <Run Text="{Binding NombrePages, Mode=OneWay}"/>
+                        <Run Text=" — "/><Run Text="{Binding Total, Mode=OneWay}"/> <Run Text="propriétaire(s)"/>
+                    </TextBlock>
+                </StackPanel>
+                <DataGrid ItemsSource="{Binding Proprietaires}" SelectedItem="{Binding ProprietaireSelectionne}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Nom" Binding="{Binding Nom}" Width="*"/>
+                        <DataGridTextColumn Header="Téléphone" Binding="{Binding Telephone}" Width="130"/>
+                        <DataGridTextColumn Header="Adresse" Binding="{Binding Adresse}" Width="1.5*"/>
+                        <DataGridTextColumn Header="Véhicules" Binding="{Binding NombreVehicules}" Width="80"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </Border>
+
+        <StackPanel Grid.Row="1" Grid.Column="1">
+            <Border Style="{StaticResource CarteStyle}">
+                <StackPanel>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="Nouveau" Command="{Binding NouveauCommand}" Style="{StaticResource BoutonSecondaire}" Margin="0"/>
+                        <TextBlock Text="{Binding TitreFormulaire}" Style="{StaticResource TitreCarte}"/>
+                    </DockPanel>
+                    <TextBlock Text="Nom" Style="{StaticResource Etiquette}"/>
+                    <TextBox Text="{Binding Nom}"/>
+                    <TextBlock Text="Téléphone" Style="{StaticResource Etiquette}"/>
+                    <TextBox Text="{Binding Telephone}"/>
+                    <TextBlock Text="Adresse" Style="{StaticResource Etiquette}"/>
+                    <TextBox Text="{Binding Adresse}" Height="60" TextWrapping="Wrap" AcceptsReturn="True" VerticalContentAlignment="Top"/>
+                    <Button Content="Enregistrer" Command="{Binding EnregistrerCommand}" Margin="0,16,0,0" HorizontalAlignment="Left"/>
+                </StackPanel>
+            </Border>
+            <TextBlock Text="{Binding Erreur}" Style="{StaticResource MessageErreur}"/>
+            <TextBlock Text="{Binding Message}" Style="{StaticResource MessageSucces}"/>
+        </StackPanel>
+    </Grid>
+</UserControl>
