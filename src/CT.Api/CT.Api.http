@@ -1,6 +1,28 @@
-@CT.Api_HostAddress = http://localhost:5092
+@api = http://localhost:5092/api
 
-GET {{CT.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+# @name connexion
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{ "email": "inspecteur@ct.local", "motDePasse": "Demo123!" }
 
 ###
+@jeton = {{connexion.response.body.$.jeton}}
+
+GET {{api}}/vehicules?search=AB&page=1
+Authorization: Bearer {{jeton}}
+
+###
+GET {{api}}/points-controle
+Authorization: Bearer {{jeton}}
+
+###
+GET {{api}}/controles?statut=Brouillon&mesControles=true
+Authorization: Bearer {{jeton}}
+
+###
+POST {{api}}/controles
+Authorization: Bearer {{jeton}}
+Content-Type: application/json
+
+{ "vehiculeId": "<id du véhicule>", "kilometrage": 85000 }
