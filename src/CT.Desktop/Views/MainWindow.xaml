@@ -1,0 +1,69 @@
+<Window x:Class="CT.Desktop.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:CT.Desktop.ViewModels"
+        xmlns:v="clr-namespace:CT.Desktop.Views"
+        Title="Contrôle technique" Height="760" Width="1280" MinHeight="600" MinWidth="1000"
+        WindowStartupLocation="CenterScreen" Background="{StaticResource Fond}">
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type vm:TableauDeBordViewModel}"><v:TableauDeBordView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:VehiculesViewModel}"><v:VehiculesView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ProprietairesViewModel}"><v:ProprietairesView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ControlesViewModel}"><v:ControlesView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SaisieControleViewModel}"><v:SaisieControleView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:PointsControleViewModel}"><v:PointsControleView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:UtilisateursViewModel}"><v:UtilisateursView/></DataTemplate>
+
+        <Style x:Key="ElementMenuStyle" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="#C8CDD5"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Fond" Padding="20,11" Background="Transparent" BorderThickness="3,0,0,0" BorderBrush="Transparent">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Fond" Property="Background" Value="#2B3648"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Fond" Property="Background" Value="#2B3648"/>
+                                <Setter TargetName="Fond" Property="BorderBrush" Value="{StaticResource Primaire}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="220"/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+
+        <DockPanel Background="{StaticResource Menu}">
+            <StackPanel DockPanel.Dock="Top" Margin="20,24,20,24">
+                <TextBlock Text="Contrôle technique" Foreground="White" FontSize="17" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding NomUtilisateur}" Foreground="#C8CDD5" Margin="0,14,0,0"/>
+                <TextBlock Text="{Binding Role, Converter={StaticResource Libelle}}" Foreground="#8A93A3" FontSize="12"/>
+            </StackPanel>
+            <Button DockPanel.Dock="Bottom" Content="Se déconnecter" Command="{Binding DeconnecterCommand}"
+                    Style="{StaticResource BoutonSecondaire}" Margin="20" Background="Transparent" Foreground="#C8CDD5" BorderBrush="#3C4658"/>
+            <ListBox ItemsSource="{Binding Menu}" SelectedItem="{Binding MenuSelectionne}"
+                     Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource ElementMenuStyle}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Titre}" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" FontSize="14"/>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+
+        <ContentControl Grid.Column="1" Content="{Binding PageCourante}" Margin="24"/>
+    </Grid>
+</Window>

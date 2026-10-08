@@ -1,0 +1,152 @@
+<UserControl x:Class="CT.Desktop.Views.VehiculesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition Width="360"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Text="Véhicules" Style="{StaticResource TitrePage}"/>
+
+        <Border Grid.Row="1" Style="{StaticResource CarteStyle}" Margin="0,0,16,0">
+            <DockPanel>
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                    <Button DockPanel.Dock="Right" Content="Rechercher" Command="{Binding RechercherCommand}" Margin="8,0,0,0"/>
+                    <TextBox Text="{Binding Recherche, UpdateSourceTrigger=PropertyChanged}" ToolTip="Immatriculation, n° de châssis ou propriétaire">
+                        <TextBox.InputBindings>
+                            <KeyBinding Key="Enter" Command="{Binding RechercherCommand}"/>
+                        </TextBox.InputBindings>
+                    </TextBox>
+                </DockPanel>
+
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,12,0,0">
+                    <Button Content="‹ Précédent" Command="{Binding PagePrecedenteCommand}" Style="{StaticResource BoutonSecondaire}"/>
+                    <Button Content="Suivant ›" Command="{Binding PageSuivanteCommand}" Style="{StaticResource BoutonSecondaire}"/>
+                    <TextBlock VerticalAlignment="Center" Foreground="{StaticResource TexteSecondaire}">
+                        <Run Text="Page"/> <Run Text="{Binding Page, Mode=OneWay}"/> <Run Text="/"/> <Run Text="{Binding NombrePages, Mode=OneWay}"/>
+                        <Run Text=" — "/><Run Text="{Binding Total, Mode=OneWay}"/> <Run Text="véhicule(s)"/>
+                    </TextBlock>
+                </StackPanel>
+
+                <DataGrid x:Name="GrilleVehicules" ItemsSource="{Binding Vehicules}" SelectedItem="{Binding VehiculeSelectionne}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Immatriculation" Binding="{Binding Immatriculation}" Width="115"/>
+                        <DataGridTextColumn Header="Véhicule" Width="*" MinWidth="130">
+                            <DataGridTextColumn.Binding>
+                                <MultiBinding StringFormat="{}{0} {1}">
+                                    <Binding Path="Marque"/>
+                                    <Binding Path="Modele"/>
+                                </MultiBinding>
+                            </DataGridTextColumn.Binding>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Année" Binding="{Binding Annee}" Width="55"/>
+                        <DataGridTextColumn Header="Énergie" Binding="{Binding Energie, Converter={StaticResource Libelle}}" Width="80"/>
+                        <DataGridTextColumn Header="Propriétaire" Binding="{Binding ProprietaireNom}" Width="*" MinWidth="130"/>
+                        <DataGridTextColumn Header="Valide jusqu'au" Binding="{Binding DateFinValidite, StringFormat=dd/MM/yyyy}" Width="105"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" Grid.Column="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <Border Style="{StaticResource CarteStyle}" IsEnabled="{Binding PeutModifier}">
+                    <StackPanel>
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Nouveau" Command="{Binding NouveauCommand}" Style="{StaticResource BoutonSecondaire}" Margin="0"
+                                    Visibility="{Binding PeutModifier, Converter={StaticResource BoolVisibilite}}"/>
+                            <TextBlock Text="{Binding TitreFormulaire}" Style="{StaticResource TitreCarte}"/>
+                        </DockPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Immatriculation" Style="{StaticResource Etiquette}"/>
+                                <TextBox Text="{Binding Immatriculation}" CharacterCasing="Upper"/>
+                                <TextBlock Text="Marque" Style="{StaticResource Etiquette}"/>
+                                <TextBox Text="{Binding Marque}"/>
+                                <TextBlock Text="Année" Style="{StaticResource Etiquette}"/>
+                                <TextBox Text="{Binding Annee}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="N° de châssis (VIN)" Style="{StaticResource Etiquette}"/>
+                                <TextBox Text="{Binding NumeroChassis}" CharacterCasing="Upper" MaxLength="17"/>
+                                <TextBlock Text="Modèle" Style="{StaticResource Etiquette}"/>
+                                <TextBox Text="{Binding Modele}"/>
+                                <TextBlock Text="Énergie" Style="{StaticResource Etiquette}"/>
+                                <ComboBox ItemsSource="{Binding Energies}" SelectedItem="{Binding Energie}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate><TextBlock Text="{Binding Converter={StaticResource Libelle}}"/></DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="Type de véhicule" Style="{StaticResource Etiquette}"/>
+                        <ComboBox ItemsSource="{Binding Types}" SelectedItem="{Binding TypeVehicule}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate><TextBlock Text="{Binding Converter={StaticResource Libelle}}"/></DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Text="Propriétaire" Style="{StaticResource Etiquette}"/>
+                        <DockPanel Margin="0,0,0,6">
+                            <Button DockPanel.Dock="Right" Content="Chercher" Command="{Binding RechercherProprietairesCommand}"
+                                    Style="{StaticResource BoutonSecondaire}" Margin="8,0,0,0"/>
+                            <TextBox Text="{Binding RechercheProprietaire, UpdateSourceTrigger=PropertyChanged}" ToolTip="Nom ou téléphone">
+                                <TextBox.InputBindings>
+                                    <KeyBinding Key="Enter" Command="{Binding RechercherProprietairesCommand}"/>
+                                </TextBox.InputBindings>
+                            </TextBox>
+                        </DockPanel>
+                        <ComboBox ItemsSource="{Binding Proprietaires}" SelectedItem="{Binding ProprietaireSelectionne}" DisplayMemberPath="Nom"/>
+                        <Button Content="Enregistrer" Command="{Binding EnregistrerCommand}" Margin="0,16,0,0" HorizontalAlignment="Left"
+                                Visibility="{Binding PeutModifier, Converter={StaticResource BoolVisibilite}}"/>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="{Binding Erreur}" Style="{StaticResource MessageErreur}"/>
+                <TextBlock Text="{Binding Message}" Style="{StaticResource MessageSucces}"/>
+
+                <Border Style="{StaticResource CarteStyle}" Margin="0,16,0,0"
+                        Visibility="{Binding VehiculeSelectionne, Converter={StaticResource NullVisibilite}}">
+                    <StackPanel>
+                        <TextBlock Text="Historique des contrôles" Style="{StaticResource TitreCarte}"/>
+                        <DataGrid ItemsSource="{Binding Historique}" SelectedItem="{Binding ControleSelectionne}" MaxHeight="200">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Date" Binding="{Binding DateControle, StringFormat=dd/MM/yyyy}" Width="90"/>
+                                <DataGridTextColumn Header="Km" Binding="{Binding Kilometrage, StringFormat=N0}" Width="80"/>
+                                <DataGridTemplateColumn Header="Résultat" Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Resultat, Converter={StaticResource Libelle}}" FontWeight="SemiBold"
+                                                       Foreground="{Binding Resultat, Converter={StaticResource CouleurResultat}}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Statut" Binding="{Binding Statut, Converter={StaticResource Libelle}}" Width="80"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <Button Content="Ouvrir le PV / reprendre la saisie" Command="{Binding OuvrirControleExistantCommand}"
+                                Style="{StaticResource BoutonSecondaire}" Margin="0,10,0,0" HorizontalAlignment="Left"/>
+
+                        <StackPanel Visibility="{Binding PeutOuvrirControle, Converter={StaticResource BoolVisibilite}}" Margin="0,16,0,0">
+                            <TextBlock Text="Nouveau contrôle" Style="{StaticResource TitreCarte}" Margin="0,0,0,4"/>
+                            <TextBlock Text="Kilométrage relevé" Style="{StaticResource Etiquette}"/>
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="Ouvrir un contrôle" Command="{Binding OuvrirControleCommand}" Margin="8,0,0,0"/>
+                                <TextBox x:Name="ChampKilometrage" Text="{Binding Kilometrage, TargetNullValue=''}"/>
+                            </DockPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

@@ -1,0 +1,97 @@
+<UserControl x:Class="CT.Desktop.Views.SaisieControleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:e="clr-namespace:CT.Shared.Enums;assembly=CT.Shared">
+    <DockPanel>
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <Button DockPanel.Dock="Right" Content="‹ Retour aux contrôles" Command="{Binding RetourCommand}" Style="{StaticResource BoutonSecondaire}" Margin="0"/>
+            <StackPanel>
+                <TextBlock Style="{StaticResource TitrePage}" Margin="0">
+                    <Run Text="Contrôle"/> <Run Text="{Binding Controle.Immatriculation, Mode=OneWay}"/>
+                </TextBlock>
+                <TextBlock Foreground="{StaticResource TexteSecondaire}">
+                    <Run Text="{Binding Controle.Vehicule, Mode=OneWay}"/> <Run Text="— propriétaire :"/> <Run Text="{Binding Controle.ProprietaireNom, Mode=OneWay}"/>
+                    <Run Text="— ouvert le"/> <Run Text="{Binding Controle.DateControle, Mode=OneWay, StringFormat=dd/MM/yyyy HH:mm}"/>
+                    <Run Text="par"/> <Run Text="{Binding Controle.InspecteurNom, Mode=OneWay}"/>
+                </TextBlock>
+            </StackPanel>
+        </DockPanel>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource CarteStyle}" Margin="0,0,0,12" Padding="16,10">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Kilométrage" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{StaticResource TexteSecondaire}"/>
+                    <TextBox Text="{Binding Kilometrage, TargetNullValue=''}" Width="110" IsEnabled="{Binding EstModifiable}"/>
+                    <TextBlock VerticalAlignment="Center" Margin="20,0,0,0">
+                        <Run Text="{Binding NombreSaisis, Mode=OneWay}" FontWeight="SemiBold"/> <Run Text="/"/>
+                        <Run Text="{Binding Lignes.Count, Mode=OneWay}"/> <Run Text="points saisis —"/>
+                        <Run Text="{Binding NombreNonConformes, Mode=OneWay}" Foreground="{StaticResource Erreur}" FontWeight="SemiBold"/>
+                        <Run Text="non conforme(s)"/>
+                    </TextBlock>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <StackPanel Orientation="Horizontal" Visibility="{Binding EstModifiable, Converter={StaticResource BoolVisibilite}}">
+                        <Button Content="Tout conforme" Command="{Binding ToutConformeCommand}" Style="{StaticResource BoutonSecondaire}"
+                                ToolTip="Marque conformes les points pas encore saisis"/>
+                        <Button Content="Enregistrer" Command="{Binding EnregistrerCommand}" Style="{StaticResource BoutonSecondaire}"/>
+                        <Button Content="Clôturer le contrôle" Command="{Binding CloturerCommand}" Margin="0"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Visibility="{Binding EstCloture, Converter={StaticResource BoolVisibilite}}">
+                        <TextBlock VerticalAlignment="Center" FontSize="16" FontWeight="Bold" Margin="0,0,12,0"
+                                   Text="{Binding Controle.Resultat, Converter={StaticResource Libelle}}"
+                                   Foreground="{Binding Controle.Resultat, Converter={StaticResource CouleurResultat}}"/>
+                        <Button Content="Ouvrir le PV" Command="{Binding OuvrirPvCommand}" Margin="0"/>
+                    </StackPanel>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <StackPanel DockPanel.Dock="Bottom">
+            <TextBlock Text="{Binding Erreur}" Style="{StaticResource MessageErreur}"/>
+            <TextBlock Text="{Binding Message}" Style="{StaticResource MessageSucces}"/>
+        </StackPanel>
+
+        <Border Style="{StaticResource CarteStyle}" Padding="0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding LignesParCategorie}" IsEnabled="{Binding EstModifiable}" Margin="16,8">
+                    <ItemsControl.GroupStyle>
+                        <GroupStyle>
+                            <GroupStyle.HeaderTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" Margin="0,14,0,6"
+                                               Foreground="{StaticResource Primaire}"/>
+                                </DataTemplate>
+                            </GroupStyle.HeaderTemplate>
+                        </GroupStyle>
+                    </ItemsControl.GroupStyle>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="#EEEEEE" BorderThickness="0,0,0,1" Padding="0,6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*"/>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="320"/>
+                                        <ColumnDefinition Width="1.5*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding Libelle}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Gravite}" VerticalAlignment="Center" FontSize="12"
+                                               Foreground="{Binding Gravite, Converter={StaticResource CouleurResultat}}"/>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <RadioButton Content="Conforme" GroupName="{Binding PointControleId}" Margin="0,0,14,0"
+                                                     IsChecked="{Binding Etat, Converter={StaticResource EnumEgal}, ConverterParameter={x:Static e:EtatPoint.Conforme}}"/>
+                                        <RadioButton Content="Non conforme" GroupName="{Binding PointControleId}" Margin="0,0,14,0"
+                                                     IsChecked="{Binding Etat, Converter={StaticResource EnumEgal}, ConverterParameter={x:Static e:EtatPoint.NonConforme}}"/>
+                                        <RadioButton Content="N/A" GroupName="{Binding PointControleId}"
+                                                     IsChecked="{Binding Etat, Converter={StaticResource EnumEgal}, ConverterParameter={x:Static e:EtatPoint.NonApplicable}}"/>
+                                    </StackPanel>
+                                    <TextBox Grid.Column="3" Text="{Binding Commentaire, UpdateSourceTrigger=PropertyChanged}" ToolTip="Commentaire"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+    </DockPanel>
+</UserControl>
