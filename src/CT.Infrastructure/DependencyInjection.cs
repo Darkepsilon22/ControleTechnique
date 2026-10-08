@@ -15,7 +15,7 @@ public static class DependencyInjection
         return services;
     }
 
-    public static async Task InitialiserBaseAsync(this IServiceProvider services, CancellationToken ct = default)
+    public static async Task InitialiserBaseAsync(this IServiceProvider services, int vehiculesDeCharge = 0, CancellationToken ct = default)
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CtDbContext>();
@@ -30,5 +30,8 @@ public static class DependencyInjection
             scope.ServiceProvider.GetRequiredService<IHachageMotDePasse>(),
             scope.ServiceProvider.GetRequiredService<TimeProvider>(),
             ct);
+
+        if (vehiculesDeCharge > 0)
+            await DbSeeder.AjouterVehiculesDeChargeAsync(db, vehiculesDeCharge, ct);
     }
 }

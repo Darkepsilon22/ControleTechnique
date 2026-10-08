@@ -157,6 +157,40 @@ public static class DbSeeder
         await db.SaveChangesAsync(ct);
     }
 
+    public static async Task AjouterVehiculesDeChargeAsync(CtDbContext db, int totalVise, CancellationToken ct = default)
+    {
+        var existants = await db.Vehicules.CountAsync(ct);
+        if (existants >= totalVise)
+            return;
+
+        var proprietaires = await db.Proprietaires.Select(p => p.Id).ToListAsync(ct);
+        var aleatoire = new Random(existants);
+        for (var i = existants; i < totalVise; i++)
+        {
+            var (marque, modeles) = Catalogue[aleatoire.Next(Catalogue.Length)];
+            db.Vehicules.Add(new Vehicule
+            {
+                Immatriculation = $"{Lettres(aleatoire, 2)}-{i:0000}-{Lettres(aleatoire, 2)}",
+                NumeroChassis = $"VF{Lettres(aleatoire, 3)}{i:000000}{aleatoire.Next(100000, 999999)}",
+                Marque = marque,
+                Modele = modeles[aleatoire.Next(modeles.Length)],
+                Annee = aleatoire.Next(2005, DateTime.Today.Year + 1),
+                TypeVehicule = (TypeVehicule)aleatoire.Next(0, 3),
+                Energie = (Energie)aleatoire.Next(0, 5),
+                ProprietaireId = proprietaires[aleatoire.Next(proprietaires.Count)]
+            });
+
+            if ((i + 1) % 1000 == 0)
+            {
+                await db.SaveChangesAsync(ct);
+                db.ChangeTracker.Clear();
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+        db.ChangeTracker.Clear();
+    }
+
     private static string Lettres(Random aleatoire, int nombre) =>
         new(Enumerable.Range(0, nombre).Select(_ => (char)('A' + aleatoire.Next(26))).ToArray());
 }

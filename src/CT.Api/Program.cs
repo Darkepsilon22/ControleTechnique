@@ -90,7 +90,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-await app.Services.InitialiserBaseAsync();
+await app.Services.InitialiserBaseAsync(app.Configuration.GetValue<int>("Demo:VehiculesDeCharge"));
 
 app.Run();
 
