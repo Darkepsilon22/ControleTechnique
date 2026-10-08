@@ -95,6 +95,30 @@ dotnet test
 - **Tests unitaires** sur les règles métier : calcul du résultat, date de fin de validité, saisie, clôture et refus de toute modification après clôture.
 - **Tests d'intégration** de l'API avec `WebApplicationFactory` et SQLite en mémoire : connexion valide (200) et invalide (401), absence de jeton (401), rôle insuffisant (403), immatriculation en double (409), données invalides (400), parcours complet jusqu'au PV.
 
+## Performance
+
+Exigence : réponse sous 500 ms en local avec 10 000 véhicules. Pour la vérifier, l'option `Demo:VehiculesDeCharge` complète la base jusqu'au nombre de véhicules demandé, puis un script chronomètre les principales requêtes :
+
+```powershell
+dotnet run --project src/CT.Api -- --Demo:VehiculesDeCharge=10000
+.\scripts\mesurer-performance.ps1
+```
+
+Résultats sur LocalDB, 10 000 véhicules, 20 mesures par requête (temps HTTP complets, en ms) :
+
+| Requête | Médiane | 95e centile |
+| --- | --- | --- |
+| Véhicules, page 1 | 5,5 | 6,7 |
+| Véhicules, dernière page | 20,1 | 23,3 |
+| Recherche d'immatriculation | 33,1 | 37,1 |
+| Recherche de n° de châssis | 22,0 | 25,0 |
+| Recherche de propriétaire | 21,2 | 35,4 |
+| Propriétaires, page 1 | 3,0 | 11,2 |
+| Contrôles, page 1 | 3,4 | 4,8 |
+| Statistiques sur 6 mois | 4,1 | 5,5 |
+
+Le script renvoie un code d'erreur si une requête dépasse le seuil.
+
 ## Endpoints principaux
 
 | Méthode et route | Rôles |
