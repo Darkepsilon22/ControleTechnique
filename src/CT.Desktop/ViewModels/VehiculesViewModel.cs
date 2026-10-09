@@ -28,6 +28,7 @@ public partial class VehiculesViewModel(ApiClient api, Session session, Navigati
     [ObservableProperty] private string? _rechercheProprietaire;
     [ObservableProperty] private ProprietaireDto? _proprietaireSelectionne;
     [ObservableProperty] private int? _kilometrage;
+    [ObservableProperty] private DateTime _dateControle = DateTime.Today;
 
     public ObservableCollection<VehiculeDto> Vehicules { get; } = [];
     public ObservableCollection<ControleResumeDto> Historique { get; } = [];
@@ -161,7 +162,8 @@ public partial class VehiculesViewModel(ApiClient api, Session session, Navigati
         }
 
         ControleDto? controle = null;
-        if (await ExecuterAsync(async () => controle = await api.OuvrirControleAsync(new OuvrirControleRequete(VehiculeSelectionne.Id, Kilometrage.Value))))
+        if (await ExecuterAsync(async () => controle = await api.OuvrirControleAsync(new OuvrirControleRequete(
+            VehiculeSelectionne.Id, Kilometrage.Value, ControlesViewModel.DateAvecHeure(DateControle)))))
             await navigation.NaviguerAsync<SaisieControleViewModel>(vm => vm.ChargerAsync(controle!.Id));
     }
 

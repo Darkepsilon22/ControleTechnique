@@ -34,7 +34,8 @@ public static class Projections
         c => new ControleResumeDto(
             c.Id, c.VehiculeId, c.Vehicule!.Immatriculation, c.Vehicule.Marque + " " + c.Vehicule.Modele,
             c.Inspecteur!.NomComplet, c.DateControle, c.Kilometrage,
-            Enums.Vers<S.StatutControle>(c.Statut), Enums.VersNullable<S.ResultatControle>(c.Resultat), c.DateFinValidite);
+            Enums.Vers<S.StatutControle>(c.Statut), Enums.VersNullable<S.ResultatControle>(c.Resultat), c.DateFinValidite,
+            c.ControleInitialId != null);
 
     public static ControleDto VersDto(Controle c) => new(
         c.Id,
@@ -62,5 +63,9 @@ public static class Projections
                 (S.Gravite)r.PointControle.Gravite,
                 (S.EtatPoint)r.Etat,
                 r.Commentaire))
-            .ToList());
+            .ToList(),
+        c.ControleInitialId,
+        c.ControleInitial?.DateControle,
+        c.EstContreVisite ? c.PointsAVerifier([]).ToList() : [],
+        c.ContreVisite?.Id);
 }

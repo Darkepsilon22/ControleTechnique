@@ -16,6 +16,7 @@ public interface IControleService
     Task<PageResultat<ControleResumeDto>> ListerAsync(S.StatutControle? statut, string? recherche, Guid? inspecteurId, int page, int taillePage, CancellationToken ct);
     Task<ControleDto> ObtenirAsync(Guid id, CancellationToken ct);
     Task<ControleDto> OuvrirAsync(OuvrirControleRequete requete, Guid inspecteurId, CancellationToken ct);
+    Task<ControleDto> OuvrirContreVisiteAsync(Guid controleInitialId, OuvrirContreVisiteRequete requete, Guid inspecteurId, CancellationToken ct);
     Task<ControleDto> SaisirAsync(Guid id, SaisirControleRequete requete, Guid inspecteurId, CancellationToken ct);
     Task<ControleDto> CloturerAsync(Guid id, Guid inspecteurId, CancellationToken ct);
 }
@@ -52,8 +53,7 @@ public class ControleService(CtDbContext db, IOptions<ControleOptions> options, 
         if (!await db.Vehicules.AnyAsync(v => v.Id == requete.VehiculeId, ct))
             throw new IntrouvableException("Véhicule introuvable.");
 
-        if (await db.Controles.AnyAsync(c => c.VehiculeId == requete.VehiculeId && c.Statut == D.StatutControle.Brouillon, ct))
-            throw new ConflitException("Un contrôle est déjà en cours pour ce véhicule.");
+        await VerifierAucunControleEnCoursAsync(requete.VehiculeId, ct);
 
         var maintenant = horloge.GetLocalNow().DateTime;
         var controle = Controle.Ouvrir(requete.VehiculeId, inspecteurId, requete.DateControle ?? maintenant, requete.Kilometrage, maintenant);
@@ -63,15 +63,35 @@ public class ControleService(CtDbContext db, IOptions<ControleOptions> options, 
         return await ObtenirAsync(controle.Id, ct);
     }
 
+    public async Task<ControleDto> OuvrirContreVisiteAsync(Guid controleInitialId, OuvrirContreVisiteRequete requete, Guid inspecteurId, CancellationToken ct)
+    {
+        var initial = await ChargerAsync(controleInitialId, ct);
+        if (initial.ContreVisite is not null)
+            throw new ConflitException("Une contre-visite existe déjà pour ce contrôle.");
+        await VerifierAucunControleEnCoursAsync(initial.VehiculeId, ct);
+
+        var maintenant = horloge.GetLocalNow().DateTime;
+        var contreVisite = Controle.OuvrirContreVisite(
+            initial, inspecteurId, requete.DateControle ?? maintenant, requete.Kilometrage, maintenant,
+            options.Value.DelaiContreVisiteMois);
+        db.Controles.Add(contreVisite);
+        await db.SaveChangesAsync(ct);
+
+        return await ObtenirAsync(contreVisite.Id, ct);
+    }
+
     public async Task<ControleDto> SaisirAsync(Guid id, SaisirControleRequete requete, Guid inspecteurId, CancellationToken ct)
     {
         var controle = await ChargerPourInspecteurAsync(id, inspecteurId, ct);
         controle.VerifierModifiable();
 
-        var idsSaisis = requete.Resultats.Select(r => r.PointControleId).Distinct().ToList();
-        var nbPointsActifs = await db.PointsControle.CountAsync(p => idsSaisis.Contains(p.Id) && p.Actif, ct);
-        if (nbPointsActifs != idsSaisis.Count)
-            throw new RegleMetierException("Un ou plusieurs points de contrôle sont inconnus ou désactivés.");
+        if (!controle.EstContreVisite)
+        {
+            var idsSaisis = requete.Resultats.Select(r => r.PointControleId).Distinct().ToList();
+            var nbPointsActifs = await db.PointsControle.CountAsync(p => idsSaisis.Contains(p.Id) && p.Actif, ct);
+            if (nbPointsActifs != idsSaisis.Count)
+                throw new RegleMetierException("Un ou plusieurs points de contrôle sont inconnus ou désactivés.");
+        }
 
         controle.Saisir(
             requete.Kilometrage,
@@ -92,6 +112,12 @@ public class ControleService(CtDbContext db, IOptions<ControleOptions> options, 
         return Projections.VersDto(controle);
     }
 
+    private async Task VerifierAucunControleEnCoursAsync(Guid vehiculeId, CancellationToken ct)
+    {
+        if (await db.Controles.AnyAsync(c => c.VehiculeId == vehiculeId && c.Statut == D.StatutControle.Brouillon, ct))
+            throw new ConflitException("Un contrôle est déjà en cours pour ce véhicule.");
+    }
+
     private async Task<Controle> ChargerPourInspecteurAsync(Guid id, Guid inspecteurId, CancellationToken ct)
     {
         var controle = await ChargerAsync(id, ct);
@@ -105,6 +131,8 @@ public class ControleService(CtDbContext db, IOptions<ControleOptions> options, 
             .Include(c => c.Vehicule).ThenInclude(v => v!.Proprietaire)
             .Include(c => c.Inspecteur)
             .Include(c => c.Resultats).ThenInclude(r => r.PointControle).ThenInclude(p => p!.Categorie)
+            .Include(c => c.ControleInitial).ThenInclude(i => i!.Resultats)
+            .Include(c => c.ContreVisite)
             .AsSplitQuery()
             .SingleOrDefaultAsync(c => c.Id == id, ct)
         ?? throw new IntrouvableException("Contrôle introuvable.");

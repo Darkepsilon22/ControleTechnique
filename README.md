@@ -15,6 +15,7 @@ Application de démonstration qui gère les contrôles techniques d'un centre fi
 | Propriétaires et véhicules | Création, modification, recherche paginée ; immatriculation et n° de châssis uniques |
 | Points de contrôle | 25 points fournis (7 catégories, gravité mineure, majeure ou critique) ; un point désactivé n'est jamais supprimé |
 | Contrôles | Ouverture par l'inspecteur, saisie point par point (conforme, non conforme, N/A, commentaire), clôture avec calcul automatique du résultat |
+| Contre-visite | Après un contrôle défavorable, l'inspecteur ouvre une contre-visite dans les 2 mois (paramètre `Controles:DelaiContreVisiteMois`) ; seuls les points non conformes sont revérifiés et la validité court depuis la date du contrôle initial |
 | Procès-verbal | PV en PDF (QuestPDF) : véhicule, propriétaire, inspecteur, résultat, points non conformes, date de fin de validité |
 | Tableau de bord | Contrôles par mois, taux de favorables, points le plus souvent non conformes |
 
@@ -23,6 +24,7 @@ Application de démonstration qui gère les contrôles techniques d'un centre fi
 - Au moins un point **majeur ou critique** non conforme : résultat **Défavorable**.
 - Sinon : résultat **Favorable**, et les points mineurs non conformes deviennent des observations.
 - Fin de validité : date du contrôle + 12 mois (paramètre `Controles:DureeValiditeMois`), aucune date pour un défavorable.
+- Contre-visite : une seule par contrôle défavorable, jamais après une autre contre-visite ; si elle est défavorable, un nouveau contrôle complet est nécessaire.
 - Un contrôle clôturé n'est plus modifiable. La règle est appliquée dans le domaine, pas seulement dans l'interface.
 
 ## Architecture
@@ -134,6 +136,7 @@ Le script renvoie un code d'erreur si une requête dépasse le seuil.
 | `POST /api/points-controle` (création ou modification) | Administrateur |
 | `GET /api/controles?statut=&search=&mesControles=`, `GET /api/controles/{id}` | Tous |
 | `POST /api/controles`, `PUT /api/controles/{id}`, `POST /api/controles/{id}/cloturer` | Inspecteur (ses propres contrôles) |
+| `POST /api/controles/{id}/contre-visite` | Inspecteur |
 | `GET /api/controles/{id}/pv` | Tous |
 | `GET /api/statistiques/resume?du=&au=` | Administrateur |
 

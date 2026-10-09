@@ -51,6 +51,8 @@ public class ApiClient(HttpClient http, Session session)
             + (statut is null ? "" : $"&statut={statut}"));
     public Task<ControleDto> ObtenirControleAsync(Guid id) => GetAsync<ControleDto>($"api/controles/{id}");
     public Task<ControleDto> OuvrirControleAsync(OuvrirControleRequete r) => PostAsync<ControleDto>("api/controles", r);
+    public Task<ControleDto> OuvrirContreVisiteAsync(Guid controleInitialId, OuvrirContreVisiteRequete r) =>
+        PostAsync<ControleDto>($"api/controles/{controleInitialId}/contre-visite", r);
     public Task<ControleDto> SaisirControleAsync(Guid id, SaisirControleRequete r) => PutAsync<ControleDto>($"api/controles/{id}", r);
     public Task<ControleDto> CloturerControleAsync(Guid id) => PostAsync<ControleDto>($"api/controles/{id}/cloturer", null);
 

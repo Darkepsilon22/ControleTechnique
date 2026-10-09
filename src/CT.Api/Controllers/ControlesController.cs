@@ -31,6 +31,16 @@ public class ControlesController(IControleService controles, IPvService pv) : Co
         return CreatedAtAction(nameof(Obtenir), new { id = controle.Id }, controle);
     }
 
+    [HttpPost("{id:guid}/contre-visite")]
+    [Authorize(Roles = Roles.Inspecteur)]
+    [ProducesResponseType<ControleDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ControleDto>> OuvrirContreVisite(Guid id, OuvrirContreVisiteRequete requete, CancellationToken ct)
+    {
+        var contreVisite = await controles.OuvrirContreVisiteAsync(id, requete, User.IdUtilisateur(), ct);
+        return CreatedAtAction(nameof(Obtenir), new { id = contreVisite.Id }, contreVisite);
+    }
+
     [HttpPut("{id:guid}")]
     [Authorize(Roles = Roles.Inspecteur)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]

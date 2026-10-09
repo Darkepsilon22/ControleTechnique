@@ -40,17 +40,21 @@
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Date" Binding="{Binding DateControle, StringFormat=dd/MM/yyyy HH:mm}" Width="130"/>
                         <DataGridTextColumn Header="Immat." Binding="{Binding Immatriculation}" Width="95"/>
-                        <DataGridTextColumn Header="Véhicule" Binding="{Binding Vehicule}" Width="1.3*" MinWidth="130"/>
-                        <DataGridTextColumn Header="Inspecteur" Binding="{Binding InspecteurNom}" Width="*" MinWidth="110"/>
-                        <DataGridTemplateColumn Header="Statut" Width="75">
+                        <DataGridTextColumn Header="Véhicule" Binding="{Binding Vehicule}" Width="1.3*" MinWidth="120"/>
+                        <DataGridTextColumn Header="Inspecteur" Binding="{Binding InspecteurNom}" Width="*" MinWidth="90"/>
+                        <DataGridTemplateColumn Header="Statut" Width="95">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding Statut, Converter={StaticResource Libelle}}"
-                                               Foreground="{Binding Statut, Converter={StaticResource CouleurResultat}}"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Statut, Converter={StaticResource Libelle}}"
+                                                   Foreground="{Binding Statut, Converter={StaticResource CouleurResultat}}"/>
+                                        <TextBlock Text=" · CV" FontWeight="SemiBold" Foreground="{StaticResource Primaire}" ToolTip="Contre-visite"
+                                                   Visibility="{Binding EstContreVisite, Converter={StaticResource BoolVisibilite}}"/>
+                                    </StackPanel>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="Résultat" Width="95">
+                        <DataGridTemplateColumn Header="Résultat" Width="100">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Resultat, Converter={StaticResource Libelle}}" FontWeight="SemiBold"
@@ -74,6 +78,13 @@
                     <TextBlock Margin="0,4,0,0" Foreground="{StaticResource TexteSecondaire}">
                         <Run Text="Statut :"/> <Run Text="{Binding Detail.Statut, Mode=OneWay, Converter={StaticResource Libelle}}"/>
                     </TextBlock>
+                    <TextBlock Foreground="{StaticResource Primaire}" Margin="0,4,0,0"
+                               Visibility="{Binding Detail.DateControleInitial, Converter={StaticResource NullVisibilite}}">
+                        <Run Text="Contre-visite du contrôle du"/>
+                        <Run Text="{Binding Detail.DateControleInitial, Mode=OneWay, StringFormat=dd/MM/yyyy}"/>
+                    </TextBlock>
+                    <TextBlock Text="Une contre-visite a été ouverte pour ce contrôle." Foreground="{StaticResource Primaire}" Margin="0,4,0,0"
+                               Visibility="{Binding Detail.ContreVisiteId, Converter={StaticResource NullVisibilite}}"/>
                     <TextBlock Style="{StaticResource Etiquette}" Text="Propriétaire"/>
                     <TextBlock Text="{Binding Detail.ProprietaireNom}"/>
                     <TextBlock Style="{StaticResource Etiquette}" Text="Inspecteur"/>
@@ -103,6 +114,28 @@
                                 Visibility="{Binding PeutReprendre, Converter={StaticResource BoolVisibilite}}"/>
                         <Button Content="Ouvrir le PV" Command="{Binding OuvrirPvCommand}"
                                 Visibility="{Binding PeutOuvrirPv, Converter={StaticResource BoolVisibilite}}"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="0,16,0,0" Visibility="{Binding PeutOuvrirContreVisite, Converter={StaticResource BoolVisibilite}}">
+                        <TextBlock Text="Contre-visite" Style="{StaticResource TitreCarte}" Margin="0,0,0,4"/>
+                        <TextBlock Text="Revérifie uniquement les points non conformes, dans les 2 mois." TextWrapping="Wrap"
+                                   FontSize="12" Foreground="{StaticResource TexteSecondaire}"/>
+                        <Grid Margin="0,6,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Kilométrage" Style="{StaticResource Etiquette}"/>
+                                <TextBox Text="{Binding KilometrageContreVisite, TargetNullValue=''}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Date" Style="{StaticResource Etiquette}"/>
+                                <DatePicker SelectedDate="{Binding DateContreVisite}"/>
+                            </StackPanel>
+                        </Grid>
+                        <Button Content="Ouvrir la contre-visite" Command="{Binding OuvrirContreVisiteCommand}" Margin="0,10,0,0" HorizontalAlignment="Left"/>
                     </StackPanel>
                 </StackPanel>
             </Border>

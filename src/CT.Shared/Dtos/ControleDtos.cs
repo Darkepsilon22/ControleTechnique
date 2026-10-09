@@ -17,6 +17,10 @@ public record OuvrirControleRequete(
     [Range(0, 3_000_000)] int Kilometrage,
     DateTime? DateControle = null);
 
+public record OuvrirContreVisiteRequete(
+    [Range(0, 3_000_000)] int Kilometrage,
+    DateTime? DateControle = null);
+
 public record SaisiePointRequete(
     Guid PointControleId,
     EtatPoint Etat,
@@ -44,7 +48,8 @@ public record ControleResumeDto(
     int Kilometrage,
     StatutControle Statut,
     ResultatControle? Resultat,
-    DateOnly? DateFinValidite);
+    DateOnly? DateFinValidite,
+    bool EstContreVisite);
 
 public record ControleDto(
     Guid Id,
@@ -61,4 +66,11 @@ public record ControleDto(
     string? Observations,
     DateOnly? DateFinValidite,
     DateTime? ClotureLe,
-    IReadOnlyList<ResultatPointDto> Resultats);
+    IReadOnlyList<ResultatPointDto> Resultats,
+    Guid? ControleInitialId,
+    DateTime? DateControleInitial,
+    IReadOnlyList<Guid> PointsContreVisite,
+    Guid? ContreVisiteId)
+{
+    public bool EstContreVisite => ControleInitialId is not null;
+}

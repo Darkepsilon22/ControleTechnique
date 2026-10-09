@@ -38,6 +38,7 @@ public partial class SaisieControleViewModel : ViewModelBase
     public bool EstModifiable =>
         Controle is { Statut: StatutControle.Brouillon } c && c.InspecteurId == _session.Utilisateur?.Id;
     public bool EstCloture => Controle?.Statut == StatutControle.Cloture;
+    public string Titre => Controle?.EstContreVisite == true ? "Contre-visite" : "Contrôle";
 
     public SaisieControleViewModel(ApiClient api, Session session, NavigationService navigation, IDialogService dialogues)
     {
@@ -59,7 +60,11 @@ public partial class SaisieControleViewModel : ViewModelBase
             ligne.PropertyChanged -= LigneModifiee;
         Lignes.Clear();
 
-        foreach (var point in points.Where(p => p.Actif || resultats.ContainsKey(p.Id)))
+        var aSaisir = controle.EstContreVisite
+            ? points.Where(p => controle.PointsContreVisite.Contains(p.Id))
+            : points.Where(p => p.Actif || resultats.ContainsKey(p.Id));
+
+        foreach (var point in aSaisir)
         {
             resultats.TryGetValue(point.Id, out var resultat);
             var ligne = new LigneSaisie
@@ -84,6 +89,7 @@ public partial class SaisieControleViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(EstModifiable));
         OnPropertyChanged(nameof(EstCloture));
+        OnPropertyChanged(nameof(Titre));
     }
 
     private void LigneModifiee(object? sender, PropertyChangedEventArgs e) => RecalculerCompteurs();
