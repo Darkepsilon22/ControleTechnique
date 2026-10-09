@@ -138,11 +138,22 @@
 
                         <StackPanel Visibility="{Binding PeutOuvrirControle, Converter={StaticResource BoolVisibilite}}" Margin="0,16,0,0">
                             <TextBlock Text="Nouveau contrôle" Style="{StaticResource TitreCarte}" Margin="0,0,0,4"/>
-                            <TextBlock Text="Kilométrage relevé" Style="{StaticResource Etiquette}"/>
-                            <DockPanel>
-                                <Button DockPanel.Dock="Right" Content="Ouvrir un contrôle" Command="{Binding OuvrirControleCommand}" Margin="8,0,0,0"/>
-                                <TextBox x:Name="ChampKilometrage" Text="{Binding Kilometrage, TargetNullValue=''}"/>
-                            </DockPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Kilométrage relevé" Style="{StaticResource Etiquette}"/>
+                                    <TextBox x:Name="ChampKilometrage" Text="{Binding Kilometrage, TargetNullValue=''}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Date du contrôle" Style="{StaticResource Etiquette}"/>
+                                    <DatePicker SelectedDate="{Binding DateControle}"/>
+                                </StackPanel>
+                            </Grid>
+                            <Button Content="Ouvrir un contrôle" Command="{Binding OuvrirControleCommand}" Margin="0,10,0,0" HorizontalAlignment="Left"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
