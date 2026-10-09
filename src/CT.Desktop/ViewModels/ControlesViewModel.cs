@@ -31,13 +31,23 @@ public partial class ControlesViewModel(ApiClient api, Session session, Navigati
     ];
 
     public ObservableCollection<ControleResumeDto> Controles { get; } = [];
-    public ObservableCollection<ResultatPointDto> NonConformes { get; } = [];
+    public ObservableCollection<DefaillanceDto> Defaillances { get; } = [];
 
     public bool EstInspecteur => session.EstInspecteur;
     public bool PeutReprendre => Detail is { Statut: StatutControle.Brouillon } d && d.InspecteurId == session.Utilisateur?.Id;
     public bool PeutOuvrirPv => Detail?.Statut == StatutControle.Cloture;
     public bool PeutOuvrirContreVisite => session.EstInspecteur
-        && Detail is { Statut: StatutControle.Cloture, Resultat: ResultatControle.Defavorable, EstContreVisite: false, ContreVisiteId: null };
+        && Detail is { Statut: StatutControle.Cloture, Resultat: not ResultatControle.Favorable, ContreVisiteId: null }
+        && DateOnly.FromDateTime(DateTime.Today) <= Detail.DateLimiteContreVisite;
+    public bool AucuneDefaillance => Detail is not null && Defaillances.Count == 0;
+    public string? Echeance => Detail?.Resultat switch
+    {
+        ResultatControle.Favorable => $"Prochain contrôle avant le {Detail.DateFinValidite:dd/MM/yyyy}",
+        ResultatControle.DefavorableMajeur => $"Contre-visite avant le {Detail.DateLimiteContreVisite:dd/MM/yyyy}",
+        ResultatControle.DefavorableCritique =>
+            $"Circulation autorisée jusqu'à minuit le {Detail.DateFinValidite:dd/MM/yyyy} — contre-visite avant le {Detail.DateLimiteContreVisite:dd/MM/yyyy}",
+        _ => null
+    };
 
     public override Task ChargerAsync() => RechercherAsync();
 
@@ -80,15 +90,16 @@ public partial class ControlesViewModel(ApiClient api, Session session, Navigati
     async partial void OnControleSelectionneChanged(ControleResumeDto? value)
     {
         Detail = null;
-        NonConformes.Clear();
+        Defaillances.Clear();
         if (value is null)
             return;
 
         await ExecuterAsync(async () =>
         {
             Detail = await api.ObtenirControleAsync(value.Id);
-            foreach (var r in Detail.Resultats.Where(r => r.Etat == EtatPoint.NonConforme))
-                NonConformes.Add(r);
+            foreach (var d in Detail.DefaillancesConstatees.OrderByDescending(d => d.Niveau).ThenBy(d => d.Code))
+                Defaillances.Add(d);
+            OnPropertyChanged(nameof(AucuneDefaillance));
         });
     }
 
@@ -97,6 +108,8 @@ public partial class ControlesViewModel(ApiClient api, Session session, Navigati
         OnPropertyChanged(nameof(PeutReprendre));
         OnPropertyChanged(nameof(PeutOuvrirPv));
         OnPropertyChanged(nameof(PeutOuvrirContreVisite));
+        OnPropertyChanged(nameof(AucuneDefaillance));
+        OnPropertyChanged(nameof(Echeance));
     }
 
     [RelayCommand]

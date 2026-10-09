@@ -47,13 +47,13 @@ public class VehiculeConfiguration : IEntityTypeConfiguration<Vehicule>
     }
 }
 
-public class CategoriePointConfiguration : IEntityTypeConfiguration<CategoriePoint>
+public class FonctionConfiguration : IEntityTypeConfiguration<Fonction>
 {
-    public void Configure(EntityTypeBuilder<CategoriePoint> builder)
+    public void Configure(EntityTypeBuilder<Fonction> builder)
     {
-        builder.ToTable("CategoriePoint");
-        builder.Property(c => c.Libelle).HasMaxLength(60);
-        builder.HasIndex(c => c.Libelle).IsUnique();
+        builder.ToTable("Fonction");
+        builder.Property(f => f.Libelle).HasMaxLength(100);
+        builder.HasIndex(f => f.Numero).IsUnique();
     }
 }
 
@@ -62,12 +62,33 @@ public class PointControleConfiguration : IEntityTypeConfiguration<PointControle
     public void Configure(EntityTypeBuilder<PointControle> builder)
     {
         builder.ToTable("PointControle");
+        builder.Property(p => p.Code).HasMaxLength(12);
         builder.Property(p => p.Libelle).HasMaxLength(150);
+        builder.HasIndex(p => p.Code).IsUnique();
+        builder.Ignore(p => p.NumeroFonction);
+        builder.Ignore(p => p.Ensemble);
 
-        builder.HasOne(p => p.Categorie)
-            .WithMany(c => c.Points)
-            .HasForeignKey(p => p.CategorieId)
+        builder.HasOne(p => p.Fonction)
+            .WithMany(f => f.Points)
+            .HasForeignKey(p => p.FonctionId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasMany(p => p.Defaillances)
+            .WithOne(d => d.PointControle)
+            .HasForeignKey(d => d.PointControleId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class DefaillanceConfiguration : IEntityTypeConfiguration<Defaillance>
+{
+    public void Configure(EntityTypeBuilder<Defaillance> builder)
+    {
+        builder.ToTable("Defaillance");
+        builder.Property(d => d.Code).HasMaxLength(16);
+        builder.Property(d => d.Libelle).HasMaxLength(250);
+        builder.HasIndex(d => d.Code).IsUnique();
+        builder.Ignore(d => d.CodePoint);
     }
 }
 
@@ -76,7 +97,6 @@ public class ControleConfiguration : IEntityTypeConfiguration<Controle>
     public void Configure(EntityTypeBuilder<Controle> builder)
     {
         builder.ToTable("Controle");
-        builder.Property(c => c.Observations).HasMaxLength(2000);
         builder.Ignore(c => c.EstCloture);
         builder.Ignore(c => c.EstContreVisite);
 
@@ -116,5 +136,12 @@ public class ResultatPointConfiguration : IEntityTypeConfiguration<ResultatPoint
             .WithMany()
             .HasForeignKey(r => r.PointControleId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasMany(r => r.Defaillances)
+            .WithMany()
+            .UsingEntity<Dictionary<string, object>>(
+                "DefaillanceConstatee",
+                d => d.HasOne<Defaillance>().WithMany().HasForeignKey("DefaillanceId").OnDelete(DeleteBehavior.Restrict),
+                r => r.HasOne<ResultatPoint>().WithMany().HasForeignKey("ResultatPointId").OnDelete(DeleteBehavior.Cascade));
     }
 }

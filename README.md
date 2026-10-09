@@ -1,155 +1,217 @@
-# Contrôle technique — gestion des contrôles de véhicules (C# / .NET 10)
+# Contrôle Technique
 
-Application de démonstration qui gère les contrôles techniques d'un centre fictif : une **API REST ASP.NET Core** sécurisée par JWT, une base **SQL Server LocalDB** créée automatiquement, et une **application WPF (MVVM)** utilisée par trois rôles : administrateur, inspecteur et réception.
+Gestion des contrôles techniques de véhicules légers, conforme à la réglementation française : API REST ASP.NET Core, base SQL Server et application de bureau WPF.
 
-> Projet personnel et fictif : les données, les points de contrôle et les règles de calcul sont simplifiés et ne reprennent aucune réglementation officielle.
+[![CI](https://github.com/Darkepsilon22/ControleTechnique/actions/workflows/ci.yml/badge.svg)](https://github.com/Darkepsilon22/ControleTechnique/actions/workflows/ci.yml)
+![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
+![C#](https://img.shields.io/badge/C%23-14-239120?logo=csharp&logoColor=white)
+![SQL Server](https://img.shields.io/badge/SQL%20Server-LocalDB-CC2927?logo=microsoftsqlserver&logoColor=white)
+![WPF](https://img.shields.io/badge/WPF-MVVM-0078D4?logo=windows&logoColor=white)
 
 ![Saisie d'un contrôle](docs/captures/04-saisie-controle.png)
 
+## Sommaire
+
+- [Présentation](#présentation)
+- [Fonctionnalités](#fonctionnalités)
+- [Règles réglementaires](#règles-réglementaires)
+- [Architecture](#architecture)
+- [Stack technique](#stack-technique)
+- [Démarrage rapide](#démarrage-rapide)
+- [API](#api)
+- [Tests et qualité](#tests-et-qualité)
+- [Performance](#performance)
+- [Captures d'écran](#captures-décran)
+- [Sources](#sources)
+
+## Présentation
+
+L'application couvre le travail d'un centre de contrôle technique pour les véhicules de catégories M1 et N1 (3,5 t maximum) :
+
+- la **réception** enregistre les propriétaires et les véhicules ;
+- l'**inspecteur** saisit le contrôle à partir du catalogue officiel des défaillances, le clôture et édite le procès-verbal ;
+- l'**administrateur** gère les comptes, le catalogue et suit l'activité du centre.
+
+Les règles de résultat, de validité et de contre-visite suivent l'arrêté du 18 juin 1991 modifié.
+
+> [!NOTE]
+> Projet personnel de démonstration. Il ne s'agit pas d'un logiciel agréé : aucune connexion à l'OTC ni au SIV, et toutes les données sont fictives.
+
 ## Fonctionnalités
 
-| Module | Ce qui est fait |
+| Domaine | Fonctionnalités |
 | --- | --- |
-| Authentification | Connexion par e-mail et mot de passe (BCrypt), jeton JWT de 8 h, droits par rôle sur chaque endpoint |
-| Utilisateurs | L'administrateur crée, modifie et désactive les comptes |
-| Propriétaires et véhicules | Création, modification, recherche paginée ; immatriculation et n° de châssis uniques |
-| Points de contrôle | 25 points fournis (7 catégories, gravité mineure, majeure ou critique) ; un point désactivé n'est jamais supprimé |
-| Contrôles | Ouverture par l'inspecteur, saisie point par point (conforme, non conforme, N/A, commentaire), clôture avec calcul automatique du résultat |
-| Contre-visite | Après un contrôle défavorable, l'inspecteur ouvre une contre-visite dans les 2 mois (paramètre `Controles:DelaiContreVisiteMois`) ; seuls les points non conformes sont revérifiés et la validité court depuis la date du contrôle initial |
-| Procès-verbal | PV en PDF (QuestPDF) : véhicule, propriétaire, inspecteur, résultat, points non conformes, date de fin de validité |
-| Tableau de bord | Contrôles par mois, taux de favorables, points le plus souvent non conformes |
+| Contrôle | Checklist organisée par fonction de l'annexe I ; pour chaque point : conforme, non applicable ou défaillance(s) avec leur code officiel ; points d'émissions selon l'énergie (essence ou diesel) |
+| Résultat | Calcul automatique A, S ou R ; validité et date limite de contre-visite ; contrôle verrouillé après clôture |
+| Contre-visite | Ouverture sous 2 mois après le contrôle périodique ; points revérifiés déterminés selon l'annexe I |
+| Procès-verbal | PDF avec identification du véhicule, résultat, échéance et défaillances classées par niveau |
+| Véhicules | Recherche paginée, unicité de l'immatriculation et du VIN, échéance du prochain contrôle (à jour, en retard, contre-visite à faire, circulation interdite) |
+| Catalogue | 9 fonctions, 29 points et 76 défaillances officiels, administrables |
+| Tableau de bord | Contrôles par mois, taux de favorables, résultats S et R, contre-visites, défaillances les plus fréquentes |
+| Sécurité | Authentification JWT, trois rôles, mots de passe hachés avec BCrypt, clé de signature hors du dépôt |
 
-### Règles de calcul du résultat
+## Règles réglementaires
 
-- Au moins un point **majeur ou critique** non conforme : résultat **Défavorable**.
-- Sinon : résultat **Favorable**, et les points mineurs non conformes deviennent des observations.
-- Fin de validité : date du contrôle + 12 mois (paramètre `Controles:DureeValiditeMois`), aucune date pour un défavorable.
-- Contre-visite : une seule par contrôle défavorable, jamais après une autre contre-visite ; si elle est défavorable, un nouveau contrôle complet est nécessaire.
-- Un contrôle clôturé n'est plus modifiable. La règle est appliquée dans le domaine, pas seulement dans l'interface.
+| Règle | Référence |
+| --- | --- |
+| Aucune défaillance majeure ni critique : **favorable (A)**, valable 2 ans | Arrêté du 18 juin 1991, art. 4 et 7 |
+| Au moins une défaillance majeure : **défavorable (S)**, contre-visite sous 2 mois | Art. 7 |
+| Au moins une défaillance critique : **défavorable (R)**, circulation autorisée jusqu'à minuit le jour du contrôle | Art. 7 |
+| Niveau d'une défaillance donné par le dernier chiffre de son code : 1 mineure, 2 majeure, 3 critique | Annexe I |
+| Contre-visite au-delà de 2 mois : nouveau contrôle périodique complet | Art. 7 et 8 |
+| Points revérifiés en contre-visite : fonction 0 et point 7.11.1 toujours ; fonction entière pour les fonctions 1 et 2 ; ensemble de points concerné pour les autres, avec les extensions prévues (5.1/5.3, 8.1/8.2 et 6.1.2/6.1.3) | Annexe I, section F |
+| Contre-visite favorable : validité de 2 ans à compter du contrôle périodique | Art. 4 |
+| Premier contrôle avant le 4e anniversaire de la première immatriculation, puis tous les 2 ans | Code de la route |
+
+Ces règles sont implémentées dans la couche domaine ([`Reglementation`](src/CT.Domain/Rules/Reglementation.cs), [`RegleContreVisite`](src/CT.Domain/Rules/RegleContreVisite.cs), [`EcheanceControle`](src/CT.Domain/Rules/EcheanceControle.cs), [`Controle`](src/CT.Domain/Entities/Controle.cs)) et couvertes par des tests unitaires.
+
+**Hors périmètre** : catalogue complet (133 points, 610 défaillances), contrôle complémentaire annuel des utilitaires (art. 4-1), véhicules de collection, seuils de mesure des appareils (freinage, opacité).
 
 ## Architecture
 
+```mermaid
+flowchart LR
+    WPF["CT.Desktop<br/>WPF, MVVM"] -- "HTTP + JWT" --> API["CT.Api<br/>ASP.NET Core"]
+    API --> DOM["CT.Domain<br/>règles métier"]
+    API --> INF["CT.Infrastructure<br/>EF Core"]
+    INF --> DB[("SQL Server<br/>LocalDB")]
+    WPF -. "DTO" .- SH["CT.Shared"]
+    API -. "DTO" .- SH
+```
+
 ```
 src/
-  CT.Domain/          entités, énumérations, règles métier (calcul du résultat, clôture)
-  CT.Infrastructure/  DbContext EF Core, configurations, migrations, seed, hachage BCrypt
-  CT.Api/             contrôleurs, services, JWT, PDF, gestion des erreurs (ProblemDetails)
-  CT.Shared/          DTO et énumérations partagés par l'API et les clients
-  CT.Desktop/         application WPF (MVVM avec CommunityToolkit.Mvvm)
+├── CT.Domain/          Entités, règles réglementaires, exceptions métier
+├── CT.Infrastructure/  DbContext, configurations EF Core, migrations, catalogue, données de démonstration
+├── CT.Api/             Contrôleurs, services applicatifs, JWT, PDF, gestion des erreurs
+├── CT.Shared/          DTO et énumérations partagés par l'API et les clients
+└── CT.Desktop/         Application WPF (MVVM)
 tests/
-  CT.Tests/           tests unitaires du domaine et tests d'intégration de l'API (xUnit)
-docs/captures/        captures d'écran
+└── CT.Tests/           Tests unitaires et tests d'intégration
+scripts/                Mesure des temps de réponse
+docs/                   Captures d'écran, script de démonstration
 ```
 
-- Le client WPF ne parle qu'à l'API ; seule l'API lit et écrit dans SQL Server.
-- Un contrôleur appelle un service, le service contient la logique et utilise le DbContext. L'API ne renvoie jamais d'entité, uniquement des DTO.
-- Toutes les clés sont des GUID générés par le code, pour permettre plus tard une saisie hors ligne sans conflit d'identifiant.
-- Les erreurs métier deviennent des réponses HTTP claires : 400 (validation, règle métier), 401, 403, 404, 409 (immatriculation déjà utilisée, contrôle déjà clôturé).
+Principes retenus :
 
-## Prérequis
+- **Couches séparées** : les règles métier vivent dans le domaine ; les contrôleurs délèguent aux services ; seule l'API accède à la base.
+- **Contrats explicites** : l'API n'expose que des DTO, jamais les entités.
+- **Erreurs normalisées** : les exceptions métier sont converties en `ProblemDetails` (400, 403, 404, 409).
+- **Identifiants GUID** générés par l'application, pour permettre une saisie hors ligne sans conflit.
 
-- Windows avec le **SDK .NET 10**
-- **SQL Server Express LocalDB** (instance `MSSQLLocalDB`)
-- Aucune virtualisation : ni Docker, ni WSL
+## Stack technique
 
-## Lancer le projet
+| Couche | Technologies |
+| --- | --- |
+| API | ASP.NET Core 10, JWT Bearer, OpenAPI, Scalar, QuestPDF |
+| Données | Entity Framework Core 10, SQL Server LocalDB, migrations versionnées |
+| Bureau | WPF, CommunityToolkit.Mvvm, Microsoft.Extensions.DependencyInjection |
+| Tests | xUnit, WebApplicationFactory, SQLite en mémoire |
+| CI | GitHub Actions (build et tests à chaque pull request) |
+
+## Démarrage rapide
+
+### Prérequis
+
+- Windows 10 ou 11
+- [SDK .NET 10](https://dotnet.microsoft.com/download)
+- SQL Server Express LocalDB (instance `MSSQLLocalDB`)
+
+### Installation
 
 ```powershell
 git clone https://github.com/Darkepsilon22/ControleTechnique.git
 cd ControleTechnique
 
-# 1. Clé de signature JWT, stockée hors du dépôt (au moins 32 caractères)
-cd src/CT.Api
-dotnet user-secrets set "Jwt:Key" "une-cle-aleatoire-d-au-moins-32-caracteres"
-cd ../..
-
-# 2. API : crée la base LocalDB, applique les migrations et insère les données de démonstration
-dotnet run --project src/CT.Api
+# Clé de signature JWT, stockée hors du dépôt (32 caractères minimum)
+dotnet user-secrets set "Jwt:Key" "<clé-aléatoire-de-32-caractères-minimum>" --project src/CT.Api
 ```
 
-L'API écoute sur `http://localhost:5092`. L'interface OpenAPI (Scalar) est disponible sur <http://localhost:5092/scalar/v1> ; le document OpenAPI brut est servi sur `/openapi/v1.json`.
-
-Dans un second terminal :
+### Lancement
 
 ```powershell
-# 3. Application desktop
+# Terminal 1 : l'API crée la base, applique les migrations et insère les données de démonstration
+dotnet run --project src/CT.Api
+
+# Terminal 2 : application de bureau
 dotnet run --project src/CT.Desktop
 ```
 
-Pour viser une autre adresse d'API : variable d'environnement `CT_API_URL`, par exemple `https://localhost:7169/`.
+L'API écoute sur `http://localhost:5092`. L'application de bureau peut viser une autre adresse avec la variable d'environnement `CT_API_URL`.
 
 ### Comptes de démonstration
 
 | Rôle | E-mail | Mot de passe |
 | --- | --- | --- |
-| Administrateur | admin@ct.local | Demo123! |
-| Inspecteur | inspecteur@ct.local | Demo123! |
-| Réception | reception@ct.local | Demo123! |
+| Administrateur | `admin@ct.local` | `Demo123!` |
+| Inspecteur | `inspecteur@ct.local` | `Demo123!` |
+| Réception | `reception@ct.local` | `Demo123!` |
 
-La base de démonstration contient 25 points de contrôle, 120 propriétaires, 200 véhicules et 150 contrôles clôturés sur les six derniers mois.
+La base de démonstration contient le catalogue réglementaire, 200 véhicules et environ 150 contrôles des six derniers mois. Un parcours de démonstration en 3 minutes est décrit dans [docs/demo.md](docs/demo.md).
 
-Un déroulé de démonstration en 3 minutes est décrit dans [docs/demo.md](docs/demo.md).
+## API
 
-## Tests
+La documentation interactive est disponible sur <http://localhost:5092/scalar/v1> et le document OpenAPI sur `/openapi/v1.json`.
+
+<details>
+<summary>Endpoints</summary>
+
+| Méthode et route | Rôles |
+| --- | --- |
+| `POST /api/auth/login` | Public |
+| `GET, POST /api/utilisateurs` · `PUT /api/utilisateurs/{id}` | Administrateur |
+| `GET, POST /api/proprietaires` · `PUT /api/proprietaires/{id}` | Administrateur, Réception |
+| `GET /api/vehicules` · `GET /api/vehicules/{id}` · `GET /api/vehicules/{id}/controles` | Tous |
+| `POST /api/vehicules` · `PUT /api/vehicules/{id}` | Administrateur, Réception |
+| `GET /api/points-controle` | Tous |
+| `POST /api/points-controle` · `POST /api/points-controle/{id}/defaillances` | Administrateur |
+| `GET /api/controles` · `GET /api/controles/{id}` · `GET /api/controles/{id}/pv` | Tous |
+| `POST /api/controles` · `PUT /api/controles/{id}` · `POST /api/controles/{id}/cloturer` · `POST /api/controles/{id}/contre-visite` | Inspecteur |
+| `GET /api/statistiques/resume` | Administrateur |
+
+Des requêtes prêtes à l'emploi sont fournies dans [src/CT.Api/CT.Api.http](src/CT.Api/CT.Api.http).
+
+</details>
+
+## Tests et qualité
 
 ```powershell
 dotnet test
 ```
 
-- **Tests unitaires** sur les règles métier : calcul du résultat, date de fin de validité, saisie, clôture et refus de toute modification après clôture.
-- **Tests d'intégration** de l'API avec `WebApplicationFactory` et SQLite en mémoire : connexion valide (200) et invalide (401), absence de jeton (401), rôle insuffisant (403), immatriculation en double (409), données invalides (400), parcours complet jusqu'au PV.
+- **Tests unitaires** des règles réglementaires : résultat A/S/R, validités, niveau déduit du code, points revérifiés en contre-visite, délais, échéance des véhicules, saisie et clôture.
+- **Tests d'intégration** de l'API (`WebApplicationFactory`, SQLite en mémoire) : authentification, autorisations par rôle, validation, conflits, parcours complet jusqu'au PV et contre-visite.
+- **Intégration continue** : build et tests exécutés par GitHub Actions sur chaque pull request.
 
 ## Performance
 
-Exigence : réponse sous 500 ms en local avec 10 000 véhicules. Pour la vérifier, l'option `Demo:VehiculesDeCharge` complète la base jusqu'au nombre de véhicules demandé, puis un script chronomètre les principales requêtes :
+Objectif : réponse inférieure à 500 ms avec 10 000 véhicules. Mesure reproductible :
 
 ```powershell
 dotnet run --project src/CT.Api -- --Demo:VehiculesDeCharge=10000
 .\scripts\mesurer-performance.ps1
 ```
 
-Résultats sur LocalDB, 10 000 véhicules, 20 mesures par requête (temps HTTP complets, en ms) :
-
-| Requête | Médiane | 95e centile |
+| Requête (10 000 véhicules, LocalDB) | Médiane | 95e centile |
 | --- | --- | --- |
-| Véhicules, page 1 | 5,5 | 6,7 |
-| Véhicules, dernière page | 20,1 | 23,3 |
-| Recherche d'immatriculation | 33,1 | 37,1 |
-| Recherche de n° de châssis | 22,0 | 25,0 |
-| Recherche de propriétaire | 21,2 | 35,4 |
-| Propriétaires, page 1 | 3,0 | 11,2 |
-| Contrôles, page 1 | 3,4 | 4,8 |
-| Statistiques sur 6 mois | 4,1 | 5,5 |
-
-Le script renvoie un code d'erreur si une requête dépasse le seuil.
-
-## Endpoints principaux
-
-| Méthode et route | Rôles |
-| --- | --- |
-| `POST /api/auth/login` | Public |
-| `GET, POST /api/utilisateurs`, `PUT /api/utilisateurs/{id}` | Administrateur |
-| `GET, POST /api/proprietaires`, `PUT /api/proprietaires/{id}` | Administrateur, Réception |
-| `GET /api/vehicules?search=&page=`, `GET /api/vehicules/{id}`, `GET /api/vehicules/{id}/controles` | Tous |
-| `POST /api/vehicules`, `PUT /api/vehicules/{id}` | Administrateur, Réception |
-| `GET /api/points-controle` | Tous |
-| `POST /api/points-controle` (création ou modification) | Administrateur |
-| `GET /api/controles?statut=&search=&mesControles=`, `GET /api/controles/{id}` | Tous |
-| `POST /api/controles`, `PUT /api/controles/{id}`, `POST /api/controles/{id}/cloturer` | Inspecteur (ses propres contrôles) |
-| `POST /api/controles/{id}/contre-visite` | Inspecteur |
-| `GET /api/controles/{id}/pv` | Tous |
-| `GET /api/statistiques/resume?du=&au=` | Administrateur |
-
-Le fichier [src/CT.Api/CT.Api.http](src/CT.Api/CT.Api.http) contient des requêtes prêtes à l'emploi.
+| Véhicules, page 1 | 11 ms | 26 ms |
+| Véhicules, dernière page | 38 ms | 54 ms |
+| Recherche par immatriculation | 54 ms | 90 ms |
+| Recherche par numéro de châssis | 36 ms | 53 ms |
+| Recherche par propriétaire | 37 ms | 66 ms |
+| Contrôles, page 1 | 8 ms | 11 ms |
+| Statistiques sur 6 mois | 13 ms | 19 ms |
 
 ## Captures d'écran
 
-| | |
+| Tableau de bord | Véhicules |
 | --- | --- |
-| ![Connexion](docs/captures/01-connexion.png) | ![Tableau de bord](docs/captures/02-tableau-de-bord.png) |
-| ![Véhicules](docs/captures/03-vehicules.png) | ![Contrôles](docs/captures/05-controles.png) |
-| ![Saisie d'un contrôle](docs/captures/04-saisie-controle.png) | ![Points de contrôle](docs/captures/06-points-de-controle.png) |
+| ![Tableau de bord](docs/captures/02-tableau-de-bord.png) | ![Véhicules](docs/captures/03-vehicules.png) |
+| **Contrôles** | **Catalogue réglementaire** |
+| ![Contrôles](docs/captures/05-controles.png) | ![Catalogue](docs/captures/06-points-de-controle.png) |
 
-## Technologies
+## Sources
 
-C# 14, .NET 10, ASP.NET Core, Entity Framework Core 10, SQL Server LocalDB, JWT, BCrypt, QuestPDF (licence Community), Scalar, WPF, CommunityToolkit.Mvvm, xUnit, SQLite (tests).
+- [Arrêté du 18 juin 1991 modifié](https://www.legifrance.gouv.fr/loda/id/LEGITEXT000020559004), articles 4, 7 et 8 (Légifrance)
+- [Annexe I de l'arrêté](https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000042548649) : fonctions, points, défaillances et contre-visites (Légifrance)
+- Instructions techniques véhicules légers, par exemple [IT VL F1 Freinage](https://fna.fr/wp-content/uploads/2023/05/IT-VL-F1E-FREINAGE-171018.pdf) et [IT VL F5 Liaisons au sol](https://fna.fr/wp-content/uploads/2023/05/IT-VL-F5E-LIAISON-AU-SOL-23022022.pdf)

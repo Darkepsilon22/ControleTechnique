@@ -1,11 +1,9 @@
-using CT.Api.Configuration;
 using CT.Api.Mapping;
 using CT.Domain.Entities;
 using CT.Domain.Exceptions;
 using CT.Infrastructure.Data;
 using CT.Shared.Dtos;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using D = CT.Domain.Enums;
 using S = CT.Shared.Enums;
 
@@ -21,7 +19,7 @@ public interface IControleService
     Task<ControleDto> CloturerAsync(Guid id, Guid inspecteurId, CancellationToken ct);
 }
 
-public class ControleService(CtDbContext db, IOptions<ControleOptions> options, TimeProvider horloge) : IControleService
+public class ControleService(CtDbContext db, TimeProvider horloge) : IControleService
 {
     public Task<PageResultat<ControleResumeDto>> ListerAsync(S.StatutControle? statut, string? recherche, Guid? inspecteurId, int page, int taillePage, CancellationToken ct)
     {
@@ -45,8 +43,11 @@ public class ControleService(CtDbContext db, IOptions<ControleOptions> options, 
             .PaginerAsync(page, taillePage, ct);
     }
 
-    public async Task<ControleDto> ObtenirAsync(Guid id, CancellationToken ct) =>
-        Projections.VersDto(await ChargerAsync(id, ct));
+    public async Task<ControleDto> ObtenirAsync(Guid id, CancellationToken ct)
+    {
+        var controle = await ChargerAsync(id, ct);
+        return Projections.VersDto(controle, await ChargerCatalogueAsync(ct));
+    }
 
     public async Task<ControleDto> OuvrirAsync(OuvrirControleRequete requete, Guid inspecteurId, CancellationToken ct)
     {
@@ -72,8 +73,7 @@ public class ControleService(CtDbContext db, IOptions<ControleOptions> options, 
 
         var maintenant = horloge.GetLocalNow().DateTime;
         var contreVisite = Controle.OuvrirContreVisite(
-            initial, inspecteurId, requete.DateControle ?? maintenant, requete.Kilometrage, maintenant,
-            options.Value.DelaiContreVisiteMois);
+            initial, inspecteurId, requete.DateControle ?? maintenant, requete.Kilometrage, maintenant);
         db.Controles.Add(contreVisite);
         await db.SaveChangesAsync(ct);
 
@@ -85,17 +85,11 @@ public class ControleService(CtDbContext db, IOptions<ControleOptions> options, 
         var controle = await ChargerPourInspecteurAsync(id, inspecteurId, ct);
         controle.VerifierModifiable();
 
-        if (!controle.EstContreVisite)
-        {
-            var idsSaisis = requete.Resultats.Select(r => r.PointControleId).Distinct().ToList();
-            var nbPointsActifs = await db.PointsControle.CountAsync(p => idsSaisis.Contains(p.Id) && p.Actif, ct);
-            if (nbPointsActifs != idsSaisis.Count)
-                throw new RegleMetierException("Un ou plusieurs points de contrôle sont inconnus ou désactivés.");
-        }
-
+        var catalogue = await ChargerCatalogueAsync(ct);
         controle.Saisir(
             requete.Kilometrage,
-            requete.Resultats.Select(r => new SaisiePoint(r.PointControleId, (D.EtatPoint)r.Etat, r.Commentaire)).ToList());
+            requete.Resultats.Select(r => new SaisiePoint(r.PointControleId, (D.EtatPoint)r.Etat, r.Defaillances, r.Commentaire)).ToList(),
+            catalogue);
         await db.SaveChangesAsync(ct);
 
         return await ObtenirAsync(id, ct);
@@ -104,13 +98,16 @@ public class ControleService(CtDbContext db, IOptions<ControleOptions> options, 
     public async Task<ControleDto> CloturerAsync(Guid id, Guid inspecteurId, CancellationToken ct)
     {
         var controle = await ChargerPourInspecteurAsync(id, inspecteurId, ct);
-        var pointsActifs = await db.PointsControle.Where(p => p.Actif).Select(p => p.Id).ToListAsync(ct);
+        var catalogue = await ChargerCatalogueAsync(ct);
 
-        controle.Cloturer(pointsActifs, options.Value.DureeValiditeMois, horloge.GetLocalNow().DateTime);
+        controle.Cloturer(catalogue, horloge.GetLocalNow().DateTime);
         await db.SaveChangesAsync(ct);
 
-        return Projections.VersDto(controle);
+        return Projections.VersDto(controle, catalogue);
     }
+
+    private async Task<List<PointControle>> ChargerCatalogueAsync(CancellationToken ct) =>
+        await db.PointsControle.Include(p => p.Fonction).Include(p => p.Defaillances).AsSplitQuery().ToListAsync(ct);
 
     private async Task VerifierAucunControleEnCoursAsync(Guid vehiculeId, CancellationToken ct)
     {
@@ -130,8 +127,9 @@ public class ControleService(CtDbContext db, IOptions<ControleOptions> options, 
         await db.Controles
             .Include(c => c.Vehicule).ThenInclude(v => v!.Proprietaire)
             .Include(c => c.Inspecteur)
-            .Include(c => c.Resultats).ThenInclude(r => r.PointControle).ThenInclude(p => p!.Categorie)
-            .Include(c => c.ControleInitial).ThenInclude(i => i!.Resultats)
+            .Include(c => c.Resultats).ThenInclude(r => r.PointControle).ThenInclude(p => p!.Fonction)
+            .Include(c => c.Resultats).ThenInclude(r => r.Defaillances)
+            .Include(c => c.ControleInitial).ThenInclude(i => i!.Resultats).ThenInclude(r => r.Defaillances)
             .Include(c => c.ContreVisite)
             .AsSplitQuery()
             .SingleOrDefaultAsync(c => c.Id == id, ct)

@@ -11,4 +11,6 @@ public class ResultatPoint
     public PointControle? PointControle { get; set; }
     public EtatPoint Etat { get; set; }
     public string? Commentaire { get; set; }
+
+    public List<Defaillance> Defaillances { get; set; } = [];
 }

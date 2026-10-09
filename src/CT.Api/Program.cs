@@ -21,7 +21,6 @@ var connexion = builder.Configuration.GetConnectionString("ControleTechnique")
 builder.Services.AddInfrastructure(connexion);
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.Section));
-builder.Services.Configure<ControleOptions>(builder.Configuration.GetSection(ControleOptions.Section));
 
 builder.Services.AddScoped<IJetonService, JetonService>();
 builder.Services.AddScoped<IAuthService, AuthService>();

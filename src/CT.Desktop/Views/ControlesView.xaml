@@ -40,8 +40,8 @@
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Date" Binding="{Binding DateControle, StringFormat=dd/MM/yyyy HH:mm}" Width="130"/>
                         <DataGridTextColumn Header="Immat." Binding="{Binding Immatriculation}" Width="95"/>
-                        <DataGridTextColumn Header="Véhicule" Binding="{Binding Vehicule}" Width="1.3*" MinWidth="120"/>
-                        <DataGridTextColumn Header="Inspecteur" Binding="{Binding InspecteurNom}" Width="*" MinWidth="90"/>
+                        <DataGridTextColumn Header="Véhicule" Binding="{Binding Vehicule}" Width="1.3*" MinWidth="110"/>
+                        <DataGridTextColumn Header="Inspecteur" Binding="{Binding InspecteurNom}" Width="*" MinWidth="70"/>
                         <DataGridTemplateColumn Header="Statut" Width="95">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
@@ -54,7 +54,7 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="Résultat" Width="100">
+                        <DataGridTemplateColumn Header="Résultat" Width="125">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Resultat, Converter={StaticResource Libelle}}" FontWeight="SemiBold"
@@ -79,31 +79,31 @@
                         <Run Text="Statut :"/> <Run Text="{Binding Detail.Statut, Mode=OneWay, Converter={StaticResource Libelle}}"/>
                     </TextBlock>
                     <TextBlock Foreground="{StaticResource Primaire}" Margin="0,4,0,0"
-                               Visibility="{Binding Detail.DateControleInitial, Converter={StaticResource NullVisibilite}}">
-                        <Run Text="Contre-visite du contrôle du"/>
-                        <Run Text="{Binding Detail.DateControleInitial, Mode=OneWay, StringFormat=dd/MM/yyyy}"/>
+                               Visibility="{Binding Detail.EstContreVisite, Converter={StaticResource BoolVisibilite}}">
+                        <Run Text="Contre-visite du contrôle périodique du"/>
+                        <Run Text="{Binding Detail.DateControlePeriodique, Mode=OneWay, StringFormat=dd/MM/yyyy}"/>
                     </TextBlock>
                     <TextBlock Text="Une contre-visite a été ouverte pour ce contrôle." Foreground="{StaticResource Primaire}" Margin="0,4,0,0"
                                Visibility="{Binding Detail.ContreVisiteId, Converter={StaticResource NullVisibilite}}"/>
+                    <TextBlock Text="{Binding Echeance}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,6,0,0"
+                               Foreground="{Binding Detail.Resultat, Converter={StaticResource CouleurResultat}}"/>
                     <TextBlock Style="{StaticResource Etiquette}" Text="Propriétaire"/>
                     <TextBlock Text="{Binding Detail.ProprietaireNom}"/>
                     <TextBlock Style="{StaticResource Etiquette}" Text="Inspecteur"/>
                     <TextBlock Text="{Binding Detail.InspecteurNom}"/>
                     <TextBlock Style="{StaticResource Etiquette}" Text="Kilométrage"/>
                     <TextBlock Text="{Binding Detail.Kilometrage, StringFormat={}{0:N0} km}"/>
-                    <TextBlock Style="{StaticResource Etiquette}" Text="Valide jusqu'au"/>
-                    <TextBlock Text="{Binding Detail.DateFinValidite, StringFormat=dd/MM/yyyy, TargetNullValue='—'}"/>
-                    <TextBlock Style="{StaticResource Etiquette}" Text="Observations"/>
-                    <TextBlock Text="{Binding Detail.Observations, TargetNullValue='Aucune'}" TextWrapping="Wrap"/>
 
-                    <TextBlock Style="{StaticResource Etiquette}" Text="Points non conformes"/>
-                    <ItemsControl ItemsSource="{Binding NonConformes}">
+                    <TextBlock Style="{StaticResource Etiquette}" Text="Défaillances constatées"/>
+                    <TextBlock Text="Aucune." Visibility="{Binding AucuneDefaillance, Converter={StaticResource BoolVisibilite}}"/>
+                    <ItemsControl ItemsSource="{Binding Defaillances}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock TextWrapping="Wrap" Margin="0,2">
-                                    <Run Text="●" Foreground="{Binding Gravite, Mode=OneWay, Converter={StaticResource CouleurResultat}}"/>
+                                    <Run Text="●" Foreground="{Binding Niveau, Mode=OneWay, Converter={StaticResource CouleurResultat}}"/>
+                                    <Run Text="{Binding Code, Mode=OneWay}" FontWeight="SemiBold"/>
                                     <Run Text="{Binding Libelle, Mode=OneWay}"/>
-                                    <Run Text="{Binding Gravite, Mode=OneWay}" Foreground="{StaticResource TexteSecondaire}" FontSize="11"/>
+                                    <Run Text="{Binding Niveau, Mode=OneWay}" Foreground="{StaticResource TexteSecondaire}" FontSize="11"/>
                                 </TextBlock>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -118,7 +118,7 @@
 
                     <StackPanel Margin="0,16,0,0" Visibility="{Binding PeutOuvrirContreVisite, Converter={StaticResource BoolVisibilite}}">
                         <TextBlock Text="Contre-visite" Style="{StaticResource TitreCarte}" Margin="0,0,0,4"/>
-                        <TextBlock Text="Revérifie uniquement les points non conformes, dans les 2 mois." TextWrapping="Wrap"
+                        <TextBlock Text="{Binding Detail.DateLimiteContreVisite, StringFormat=À effectuer au plus tard le {0:dd/MM/yyyy}.}" TextWrapping="Wrap"
                                    FontSize="12" Foreground="{StaticResource TexteSecondaire}"/>
                         <Grid Margin="0,6,0,0">
                             <Grid.ColumnDefinitions>

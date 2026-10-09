@@ -15,25 +15,26 @@
                     <Run Text="par"/> <Run Text="{Binding Controle.InspecteurNom, Mode=OneWay}"/>
                 </TextBlock>
                 <TextBlock Foreground="{StaticResource Primaire}" Margin="0,2,0,0"
-                           Visibility="{Binding Controle.DateControleInitial, Converter={StaticResource NullVisibilite}}">
-                    <Run Text="Contre-visite du contrôle défavorable du"/>
-                    <Run Text="{Binding Controle.DateControleInitial, Mode=OneWay, StringFormat=dd/MM/yyyy}"/>
-                    <Run Text="— seuls les points non conformes sont revérifiés"/>
+                           Visibility="{Binding Controle.EstContreVisite, Converter={StaticResource BoolVisibilite}}">
+                    <Run Text="Contre-visite du contrôle technique périodique du"/>
+                    <Run Text="{Binding Controle.DateControlePeriodique, Mode=OneWay, StringFormat=dd/MM/yyyy}"/>
+                    <Run Text="— points à revérifier selon l'annexe I (section F)"/>
                 </TextBlock>
             </StackPanel>
         </DockPanel>
 
         <Border DockPanel.Dock="Top" Style="{StaticResource CarteStyle}" Margin="0,0,0,12" Padding="16,10">
             <DockPanel>
+                <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" Foreground="{StaticResource TexteSecondaire}">
+                    <Run Text="{Binding NombreSaisis, Mode=OneWay}" FontWeight="SemiBold"/> <Run Text="/"/>
+                    <Run Text="{Binding Lignes.Count, Mode=OneWay}"/> <Run Text="points saisis — défaillances :"/>
+                    <Run Text="{Binding NombreCritiques, Mode=OneWay}" Foreground="#D93025" FontWeight="SemiBold"/> <Run Text="critique(s),"/>
+                    <Run Text="{Binding NombreMajeures, Mode=OneWay}" Foreground="#E37400" FontWeight="SemiBold"/> <Run Text="majeure(s),"/>
+                    <Run Text="{Binding NombreMineures, Mode=OneWay}" FontWeight="SemiBold"/> <Run Text="mineure(s)"/>
+                </TextBlock>
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="Kilométrage" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{StaticResource TexteSecondaire}"/>
                     <TextBox Text="{Binding Kilometrage, TargetNullValue=''}" Width="110" IsEnabled="{Binding EstModifiable}"/>
-                    <TextBlock VerticalAlignment="Center" Margin="20,0,0,0">
-                        <Run Text="{Binding NombreSaisis, Mode=OneWay}" FontWeight="SemiBold"/> <Run Text="/"/>
-                        <Run Text="{Binding Lignes.Count, Mode=OneWay}"/> <Run Text="points saisis —"/>
-                        <Run Text="{Binding NombreNonConformes, Mode=OneWay}" Foreground="{StaticResource Erreur}" FontWeight="SemiBold"/>
-                        <Run Text="non conforme(s)"/>
-                    </TextBlock>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <StackPanel Orientation="Horizontal" Visibility="{Binding EstModifiable, Converter={StaticResource BoolVisibilite}}">
@@ -59,7 +60,7 @@
 
         <Border Style="{StaticResource CarteStyle}" Padding="0">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <ItemsControl ItemsSource="{Binding LignesParCategorie}" IsEnabled="{Binding EstModifiable}" Margin="16,8">
+                <ItemsControl ItemsSource="{Binding LignesParFonction}" IsEnabled="{Binding EstModifiable}" Margin="16,8">
                     <ItemsControl.GroupStyle>
                         <GroupStyle>
                             <GroupStyle.HeaderTemplate>
@@ -74,24 +75,52 @@
                         <DataTemplate>
                             <Border BorderBrush="#EEEEEE" BorderThickness="0,0,0,1" Padding="0,6">
                                 <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="64"/>
                                         <ColumnDefinition Width="2*"/>
-                                        <ColumnDefinition Width="80"/>
-                                        <ColumnDefinition Width="320"/>
-                                        <ColumnDefinition Width="1.5*"/>
+                                        <ColumnDefinition Width="330"/>
+                                        <ColumnDefinition Width="1.3*"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding Libelle}" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding Gravite}" VerticalAlignment="Center" FontSize="12"
-                                               Foreground="{Binding Gravite, Converter={StaticResource CouleurResultat}}"/>
+                                    <TextBlock Text="{Binding Code}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{StaticResource TexteSecondaire}"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Libelle}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,8,0"/>
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                         <RadioButton Content="Conforme" GroupName="{Binding PointControleId}" Margin="0,0,14,0"
                                                      IsChecked="{Binding Etat, Converter={StaticResource EnumEgal}, ConverterParameter={x:Static e:EtatPoint.Conforme}}"/>
-                                        <RadioButton Content="Non conforme" GroupName="{Binding PointControleId}" Margin="0,0,14,0"
+                                        <RadioButton Content="Défaillance(s)" GroupName="{Binding PointControleId}" Margin="0,0,14,0"
                                                      IsChecked="{Binding Etat, Converter={StaticResource EnumEgal}, ConverterParameter={x:Static e:EtatPoint.NonConforme}}"/>
                                         <RadioButton Content="N/A" GroupName="{Binding PointControleId}"
                                                      IsChecked="{Binding Etat, Converter={StaticResource EnumEgal}, ConverterParameter={x:Static e:EtatPoint.NonApplicable}}"/>
                                     </StackPanel>
                                     <TextBox Grid.Column="3" Text="{Binding Commentaire, UpdateSourceTrigger=PropertyChanged}" ToolTip="Commentaire"/>
+
+                                    <ItemsControl Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" ItemsSource="{Binding Defaillances}" Margin="0,6,0,2">
+                                        <ItemsControl.Style>
+                                            <Style TargetType="ItemsControl">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Etat}" Value="{x:Static e:EtatPoint.NonConforme}">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ItemsControl.Style>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding Cochee}" Margin="0,2">
+                                                    <TextBlock TextWrapping="Wrap">
+                                                        <Run Text="{Binding Code, Mode=OneWay}" FontWeight="SemiBold"/>
+                                                        <Run Text="{Binding Libelle, Mode=OneWay}"/>
+                                                        <Run Text="{Binding Niveau, Mode=OneWay}" FontSize="11"
+                                                             Foreground="{Binding Niveau, Mode=OneWay, Converter={StaticResource CouleurResultat}}"/>
+                                                    </TextBlock>
+                                                </CheckBox>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </Grid>
                             </Border>
                         </DataTemplate>

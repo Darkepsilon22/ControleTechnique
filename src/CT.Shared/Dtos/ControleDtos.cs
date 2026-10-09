@@ -3,13 +3,29 @@ using CT.Shared.Enums;
 
 namespace CT.Shared.Dtos;
 
-public record PointControleDto(Guid Id, Guid CategorieId, string Categorie, string Libelle, Gravite Gravite, bool Actif);
+public record DefaillanceDto(Guid Id, string Code, string Libelle, NiveauDefaillance Niveau, bool Actif);
+
+public record PointControleDto(
+    Guid Id,
+    string Code,
+    string Libelle,
+    Guid FonctionId,
+    int NumeroFonction,
+    string Fonction,
+    bool Actif,
+    IReadOnlyList<DefaillanceDto> Defaillances);
 
 public record PointControleRequete(
     Guid? Id,
-    Guid CategorieId,
+    Guid FonctionId,
+    [Required, StringLength(12, MinimumLength = 5)] string Code,
     [Required, StringLength(150, MinimumLength = 3)] string Libelle,
-    Gravite Gravite,
+    bool Actif = true);
+
+public record DefaillanceRequete(
+    Guid? Id,
+    [Required, StringLength(16, MinimumLength = 9)] string Code,
+    [Required, StringLength(250, MinimumLength = 3)] string Libelle,
     bool Actif = true);
 
 public record OuvrirControleRequete(
@@ -24,6 +40,7 @@ public record OuvrirContreVisiteRequete(
 public record SaisiePointRequete(
     Guid PointControleId,
     EtatPoint Etat,
+    IReadOnlyList<Guid> Defaillances,
     [StringLength(500)] string? Commentaire);
 
 public record SaisirControleRequete(
@@ -32,11 +49,13 @@ public record SaisirControleRequete(
 
 public record ResultatPointDto(
     Guid PointControleId,
-    string Categorie,
+    string Code,
     string Libelle,
-    Gravite Gravite,
+    int NumeroFonction,
+    string Fonction,
     EtatPoint Etat,
-    string? Commentaire);
+    string? Commentaire,
+    IReadOnlyList<DefaillanceDto> Defaillances);
 
 public record ControleResumeDto(
     Guid Id,
@@ -56,21 +75,27 @@ public record ControleDto(
     Guid VehiculeId,
     string Immatriculation,
     string Vehicule,
+    string NumeroChassis,
+    TypeVehicule TypeVehicule,
+    Energie Energie,
+    DateOnly DatePremiereImmatriculation,
     string ProprietaireNom,
     Guid InspecteurId,
     string InspecteurNom,
     DateTime DateControle,
+    DateTime DateControlePeriodique,
     int Kilometrage,
     StatutControle Statut,
     ResultatControle? Resultat,
-    string? Observations,
     DateOnly? DateFinValidite,
+    DateOnly? DateLimiteContreVisite,
     DateTime? ClotureLe,
     IReadOnlyList<ResultatPointDto> Resultats,
+    IReadOnlyList<Guid> PointsASaisir,
     Guid? ControleInitialId,
-    DateTime? DateControleInitial,
-    IReadOnlyList<Guid> PointsContreVisite,
     Guid? ContreVisiteId)
 {
     public bool EstContreVisite => ControleInitialId is not null;
+
+    public IEnumerable<DefaillanceDto> DefaillancesConstatees => Resultats.SelectMany(r => r.Defaillances);
 }

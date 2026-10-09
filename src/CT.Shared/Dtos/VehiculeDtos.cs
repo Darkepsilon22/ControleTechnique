@@ -16,19 +16,20 @@ public record VehiculeDto(
     string NumeroChassis,
     string Marque,
     string Modele,
-    int Annee,
+    DateOnly DatePremiereImmatriculation,
     TypeVehicule TypeVehicule,
     Energie Energie,
     Guid ProprietaireId,
     string ProprietaireNom,
-    DateOnly? DateFinValidite);
+    DateOnly DateLimiteControle,
+    StatutEcheance Echeance);
 
 public record VehiculeRequete(
     [Required, StringLength(20, MinimumLength = 4)] string Immatriculation,
     [Required, StringLength(17, MinimumLength = 17, ErrorMessage = "Le numéro de châssis (VIN) doit contenir 17 caractères.")] string NumeroChassis,
     [Required, StringLength(50)] string Marque,
     [Required, StringLength(50)] string Modele,
-    [Range(1950, 2100)] int Annee,
+    DateOnly DatePremiereImmatriculation,
     TypeVehicule TypeVehicule,
     Energie Energie,
     Guid ProprietaireId);

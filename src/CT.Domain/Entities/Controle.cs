@@ -4,7 +4,7 @@ using CT.Domain.Rules;
 
 namespace CT.Domain.Entities;
 
-public record SaisiePoint(Guid PointControleId, EtatPoint Etat, string? Commentaire);
+public record SaisiePoint(Guid PointControleId, EtatPoint Etat, IReadOnlyCollection<Guid> Defaillances, string? Commentaire);
 
 public class Controle
 {
@@ -14,11 +14,12 @@ public class Controle
     public Guid InspecteurId { get; set; }
     public Utilisateur? Inspecteur { get; set; }
     public DateTime DateControle { get; set; }
+    public DateTime DateControlePeriodique { get; set; }
     public int Kilometrage { get; set; }
     public StatutControle Statut { get; set; } = StatutControle.Brouillon;
     public ResultatControle? Resultat { get; set; }
-    public string? Observations { get; set; }
     public DateOnly? DateFinValidite { get; set; }
+    public DateOnly? DateLimiteContreVisite { get; set; }
     public DateTime CreeLe { get; set; }
     public DateTime? ClotureLe { get; set; }
     public DateTime? SynchroniseLe { get; set; }
@@ -43,54 +44,60 @@ public class Controle
             VehiculeId = vehiculeId,
             InspecteurId = inspecteurId,
             DateControle = dateControle,
+            DateControlePeriodique = dateControle,
             Kilometrage = kilometrage,
             CreeLe = maintenant
         };
     }
 
-    public static Controle OuvrirContreVisite(Controle initial, Guid inspecteurId, DateTime dateControle, int kilometrage,
-        DateTime maintenant, int delaiMois)
+    public static Controle OuvrirContreVisite(Controle precedent, Guid inspecteurId, DateTime dateControle, int kilometrage, DateTime maintenant)
     {
-        if (initial.EstContreVisite)
-            throw new RegleMetierException("Une contre-visite défavorable impose un nouveau contrôle complet.");
-        if (initial.Statut != StatutControle.Cloture || initial.Resultat != ResultatControle.Defavorable)
+        if (precedent.Statut != StatutControle.Cloture || precedent.Resultat is null or ResultatControle.Favorable)
             throw new RegleMetierException("Une contre-visite ne peut suivre qu'un contrôle clôturé défavorable.");
-        if (dateControle < initial.DateControle)
-            throw new RegleMetierException("La contre-visite ne peut pas précéder le contrôle initial.");
-        if (dateControle > initial.DateControle.AddMonths(delaiMois))
-            throw new RegleMetierException($"Le délai de contre-visite de {delaiMois} mois est dépassé : un contrôle complet est nécessaire.");
-        if (kilometrage < initial.Kilometrage)
-            throw new RegleMetierException("Le kilométrage ne peut pas être inférieur à celui du contrôle initial.");
+        if (dateControle < precedent.DateControle)
+            throw new RegleMetierException("La contre-visite ne peut pas précéder le contrôle qu'elle vérifie.");
+        if (DateOnly.FromDateTime(dateControle) > precedent.DateLimiteContreVisite)
+            throw new RegleMetierException(
+                $"Le délai de contre-visite ({Reglementation.DelaiContreVisiteMois} mois après le contrôle périodique) est dépassé : "
+                + "un nouveau contrôle technique périodique est nécessaire.");
 
-        var contreVisite = Ouvrir(initial.VehiculeId, inspecteurId, dateControle, kilometrage, maintenant);
-        contreVisite.ControleInitialId = initial.Id;
-        contreVisite.ControleInitial = initial;
+        var contreVisite = Ouvrir(precedent.VehiculeId, inspecteurId, dateControle, kilometrage, maintenant);
+        contreVisite.DateControlePeriodique = precedent.DateControlePeriodique;
+        contreVisite.ControleInitialId = precedent.Id;
+        contreVisite.ControleInitial = precedent;
         return contreVisite;
     }
 
-    public IReadOnlyCollection<Guid> PointsAVerifier(IEnumerable<Guid> pointsActifsIds)
+    public IReadOnlyList<PointControle> PointsASaisir(IReadOnlyCollection<PointControle> catalogue)
     {
+        var energie = (Vehicule ?? throw new InvalidOperationException("Le véhicule du contrôle doit être chargé.")).Energie;
+        var applicables = catalogue.Where(p => p.Actif && p.EstApplicable(energie)).ToList();
         if (!EstContreVisite)
-            return pointsActifsIds.ToList();
+            return applicables;
 
-        var initial = ControleInitial
-            ?? throw new InvalidOperationException("Le contrôle initial doit être chargé pour une contre-visite.");
-        return initial.Resultats.Where(r => r.Etat == EtatPoint.NonConforme).Select(r => r.PointControleId).ToList();
+        var precedent = ControleInitial
+            ?? throw new InvalidOperationException("Le contrôle précédent doit être chargé pour une contre-visite.");
+        var codes = RegleContreVisite.PointsAReverifier(
+            RegleContreVisite.CodesMotivantUneContreVisite(precedent),
+            applicables.Select(p => p.Code).ToList());
+        return applicables.Where(p => codes.Contains(p.Code)).ToList();
     }
 
-    public void Saisir(int? kilometrage, IReadOnlyCollection<SaisiePoint> saisies)
+    public void Saisir(int? kilometrage, IReadOnlyCollection<SaisiePoint> saisies, IReadOnlyCollection<PointControle> catalogue)
     {
         VerifierModifiable();
 
-        var doublon = saisies.GroupBy(s => s.PointControleId).FirstOrDefault(g => g.Count() > 1);
-        if (doublon is not null)
+        if (saisies.GroupBy(s => s.PointControleId).Any(g => g.Count() > 1))
             throw new RegleMetierException("Un point de contrôle ne peut être saisi qu'une seule fois.");
 
-        if (EstContreVisite)
+        var aSaisir = PointsASaisir(catalogue).ToDictionary(p => p.Id);
+        foreach (var saisie in saisies)
         {
-            var aVerifier = PointsAVerifier([]).ToHashSet();
-            if (saisies.Any(s => !aVerifier.Contains(s.PointControleId)))
-                throw new RegleMetierException("Une contre-visite ne porte que sur les points non conformes du contrôle initial.");
+            if (!aSaisir.TryGetValue(saisie.PointControleId, out var point))
+                throw new RegleMetierException(EstContreVisite
+                    ? "Ce point n'est pas à revérifier lors de cette contre-visite."
+                    : "Ce point de contrôle est inconnu, désactivé ou non applicable à ce véhicule.");
+            VerifierDefaillances(point, saisie);
         }
 
         if (kilometrage is not null)
@@ -101,46 +108,38 @@ public class Controle
 
         foreach (var saisie in saisies)
         {
-            var commentaire = string.IsNullOrWhiteSpace(saisie.Commentaire) ? null : saisie.Commentaire.Trim();
-            var existant = Resultats.FirstOrDefault(r => r.PointControleId == saisie.PointControleId);
-            if (existant is null)
+            var point = aSaisir[saisie.PointControleId];
+            var resultat = Resultats.FirstOrDefault(r => r.PointControleId == point.Id);
+            if (resultat is null)
             {
-                Resultats.Add(new ResultatPoint
-                {
-                    ControleId = Id,
-                    PointControleId = saisie.PointControleId,
-                    Etat = saisie.Etat,
-                    Commentaire = commentaire
-                });
+                resultat = new ResultatPoint { ControleId = Id, PointControleId = point.Id, PointControle = point };
+                Resultats.Add(resultat);
             }
-            else
-            {
-                existant.Etat = saisie.Etat;
-                existant.Commentaire = commentaire;
-            }
+
+            resultat.Etat = saisie.Etat;
+            resultat.Commentaire = string.IsNullOrWhiteSpace(saisie.Commentaire) ? null : saisie.Commentaire.Trim();
+            resultat.Defaillances.Clear();
+            resultat.Defaillances.AddRange(point.Defaillances.Where(d => saisie.Defaillances.Contains(d.Id)));
         }
     }
 
-    public void Cloturer(IEnumerable<Guid> pointsActifsIds, int dureeValiditeMois, DateTime maintenant)
+    public void Cloturer(IReadOnlyCollection<PointControle> catalogue, DateTime maintenant)
     {
         VerifierModifiable();
 
         var saisis = Resultats.Select(r => r.PointControleId).ToHashSet();
-        var manquants = PointsAVerifier(pointsActifsIds).Count(id => !saisis.Contains(id));
+        var manquants = PointsASaisir(catalogue).Count(p => !saisis.Contains(p.Id));
         if (manquants > 0)
             throw new RegleMetierException($"{manquants} point(s) de contrôle n'ont pas encore été saisis.");
 
-        var calcul = CalculateurResultat.Calculer(Resultats.Select(r =>
-        {
-            var point = r.PointControle
-                ?? throw new InvalidOperationException("Le point de contrôle de chaque résultat doit être chargé.");
-            return new PointEvalue(point.Libelle, point.Gravite, r.Etat);
-        }));
+        var resultat = Reglementation.Resultat(Resultats.SelectMany(r => r.Defaillances).Select(d => d.Niveau));
+        var dateControlePeriodique = DateOnly.FromDateTime(DateControlePeriodique);
 
-        Resultat = calcul.Resultat;
-        Observations = calcul.Observations.Count > 0 ? string.Join(Environment.NewLine, calcul.Observations) : null;
-        var dateReference = EstContreVisite ? ControleInitial!.DateControle : DateControle;
-        DateFinValidite = CalculateurResultat.CalculerFinValidite(calcul.Resultat, dateReference, dureeValiditeMois);
+        Resultat = resultat;
+        DateFinValidite = Reglementation.FinValidite(resultat, DateOnly.FromDateTime(DateControle), dateControlePeriodique);
+        DateLimiteContreVisite = resultat == ResultatControle.Favorable
+            ? null
+            : Reglementation.LimiteContreVisite(dateControlePeriodique);
         Statut = StatutControle.Cloture;
         ClotureLe = maintenant;
     }
@@ -149,6 +148,18 @@ public class Controle
     {
         if (EstCloture)
             throw new ControleClotureException();
+    }
+
+    private static void VerifierDefaillances(PointControle point, SaisiePoint saisie)
+    {
+        if (saisie.Etat == EtatPoint.NonConforme && saisie.Defaillances.Count == 0)
+            throw new RegleMetierException($"Point {point.Code} : indiquez au moins une défaillance constatée.");
+        if (saisie.Etat != EtatPoint.NonConforme && saisie.Defaillances.Count > 0)
+            throw new RegleMetierException($"Point {point.Code} : un point sans défaillance ne peut pas en comporter.");
+
+        var possibles = point.Defaillances.Where(d => d.Actif).Select(d => d.Id).ToHashSet();
+        if (saisie.Defaillances.Any(id => !possibles.Contains(id)))
+            throw new RegleMetierException($"Point {point.Code} : une défaillance indiquée n'appartient pas à ce point.");
     }
 
     private static void VerifierKilometrage(int kilometrage)

@@ -17,7 +17,7 @@ public interface IVehiculeService
     Task<IReadOnlyList<ControleResumeDto>> HistoriqueAsync(Guid id, CancellationToken ct);
 }
 
-public class VehiculeService(CtDbContext db) : IVehiculeService
+public class VehiculeService(CtDbContext db, TimeProvider horloge) : IVehiculeService
 {
     public Task<PageResultat<VehiculeDto>> RechercherAsync(string? recherche, int page, int taillePage, CancellationToken ct)
     {
@@ -31,11 +31,11 @@ public class VehiculeService(CtDbContext db) : IVehiculeService
                 v.Proprietaire!.Nom.Contains(recherche.Trim()));
         }
 
-        return requete.OrderBy(v => v.Immatriculation).Select(Projections.Vehicule).PaginerAsync(page, taillePage, ct);
+        return requete.OrderBy(v => v.Immatriculation).Select(Projections.Vehicule(Aujourdhui)).PaginerAsync(page, taillePage, ct);
     }
 
     public async Task<VehiculeDto> ObtenirAsync(Guid id, CancellationToken ct) =>
-        await db.Vehicules.Where(v => v.Id == id).Select(Projections.Vehicule).SingleOrDefaultAsync(ct)
+        await db.Vehicules.Where(v => v.Id == id).Select(Projections.Vehicule(Aujourdhui)).SingleOrDefaultAsync(ct)
             ?? throw new IntrouvableException("Véhicule introuvable.");
 
     public async Task<VehiculeDto> CreerAsync(VehiculeRequete requete, CancellationToken ct)
@@ -68,6 +68,8 @@ public class VehiculeService(CtDbContext db) : IVehiculeService
             .ToListAsync(ct);
     }
 
+    private DateOnly Aujourdhui => DateOnly.FromDateTime(horloge.GetLocalNow().DateTime);
+
     private async Task AppliquerAsync(Vehicule vehicule, VehiculeRequete requete, CancellationToken ct)
     {
         var immatriculation = Vehicule.NormaliserImmatriculation(requete.Immatriculation);
@@ -84,7 +86,9 @@ public class VehiculeService(CtDbContext db) : IVehiculeService
         vehicule.NumeroChassis = chassis;
         vehicule.Marque = requete.Marque.Trim();
         vehicule.Modele = requete.Modele.Trim();
-        vehicule.Annee = requete.Annee;
+        if (requete.DatePremiereImmatriculation > Aujourdhui || requete.DatePremiereImmatriculation.Year < 1900)
+            throw new RegleMetierException("La date de première immatriculation est invalide.");
+        vehicule.DatePremiereImmatriculation = requete.DatePremiereImmatriculation;
         vehicule.TypeVehicule = (D.TypeVehicule)requete.TypeVehicule;
         vehicule.Energie = (D.Energie)requete.Energie;
         vehicule.ProprietaireId = requete.ProprietaireId;

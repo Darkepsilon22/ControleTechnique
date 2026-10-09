@@ -9,7 +9,7 @@ public class Vehicule
     public required string NumeroChassis { get; set; }
     public required string Marque { get; set; }
     public required string Modele { get; set; }
-    public int Annee { get; set; }
+    public DateOnly DatePremiereImmatriculation { get; set; }
     public TypeVehicule TypeVehicule { get; set; }
     public Energie Energie { get; set; }
 
