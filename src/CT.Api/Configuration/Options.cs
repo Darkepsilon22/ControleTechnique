@@ -9,11 +9,3 @@ public class JwtOptions
     public string Key { get; set; } = "";
     public int DureeHeures { get; set; } = 8;
 }
-
-public class ControleOptions
-{
-    public const string Section = "Controles";
-
-    public int DureeValiditeMois { get; set; } = 12;
-    public int DelaiContreVisiteMois { get; set; } = 2;
-}

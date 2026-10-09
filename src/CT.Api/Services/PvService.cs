@@ -14,6 +14,8 @@ public interface IPvService
 
 public class PvService(IControleService controles) : IPvService
 {
+    private record LigneDefaillance(string Code, string Libelle, string Point, string? Commentaire);
+
     public async Task<(byte[] Contenu, string NomFichier)> GenererAsync(Guid controleId, CancellationToken ct)
     {
         var controle = await controles.ObtenirAsync(controleId, ct);
@@ -23,65 +25,97 @@ public class PvService(IControleService controles) : IPvService
         var contenu = Document.Create(document => document.Page(page =>
         {
             page.Size(PageSizes.A4);
-            page.Margin(40);
-            page.DefaultTextStyle(t => t.FontSize(10));
+            page.Margin(36);
+            page.DefaultTextStyle(t => t.FontSize(9.5f));
 
             page.Header().Column(col =>
             {
-                col.Item().Text(controle.EstContreVisite ? "Procès-verbal de contre-visite" : "Procès-verbal de contrôle technique").FontSize(18).Bold();
-                col.Item().Text($"N° {controle.Id.ToString()[..8].ToUpperInvariant()} — {controle.DateControle:dd/MM/yyyy HH:mm}").FontColor(Colors.Grey.Darken1);
-                if (controle.DateControleInitial is { } dateInitiale)
-                    col.Item().Text($"Contre-visite du contrôle défavorable du {dateInitiale:dd/MM/yyyy}").FontColor(Colors.Grey.Darken1);
+                col.Item().Text(controle.EstContreVisite
+                    ? "Procès-verbal de contre-visite"
+                    : "Procès-verbal de contrôle technique périodique").FontSize(17).Bold();
+                col.Item().Text($"N° {controle.Id.ToString()[..8].ToUpperInvariant()} — {controle.DateControle:dd/MM/yyyy HH:mm}")
+                    .FontColor(Colors.Grey.Darken1);
+                if (controle.EstContreVisite)
+                    col.Item().Text($"Contre-visite du contrôle technique périodique du {controle.DateControlePeriodique:dd/MM/yyyy}")
+                        .FontColor(Colors.Grey.Darken1);
             });
 
-            page.Content().PaddingVertical(15).Column(col =>
+            page.Content().PaddingVertical(12).Column(col =>
             {
-                col.Spacing(12);
+                col.Spacing(10);
                 col.Item().Element(c => Resultat(c, controle));
                 col.Item().Row(row =>
                 {
-                    row.RelativeItem().Element(c => Bloc(c, "Véhicule",
-                        $"{controle.Immatriculation}", controle.Vehicule, $"Kilométrage : {controle.Kilometrage:N0} km"));
-                    row.ConstantItem(15);
-                    row.RelativeItem().Element(c => Bloc(c, "Propriétaire", controle.ProprietaireNom));
-                    row.ConstantItem(15);
-                    row.RelativeItem().Element(c => Bloc(c, "Inspecteur", controle.InspecteurNom,
+                    row.RelativeItem(3).Element(c => Bloc(c, "Véhicule",
+                        $"{controle.Immatriculation} — {controle.Vehicule}",
+                        $"VIN : {controle.NumeroChassis}",
+                        $"Catégorie : {(controle.TypeVehicule == TypeVehicule.VoitureParticuliere ? "M1" : "N1")} — Énergie : {controle.Energie}",
+                        $"1re immatriculation : {controle.DatePremiereImmatriculation:dd/MM/yyyy}",
+                        $"Kilométrage : {controle.Kilometrage:N0} km"));
+                    row.ConstantItem(10);
+                    row.RelativeItem(2).Element(c => Bloc(c, "Propriétaire", controle.ProprietaireNom));
+                    row.ConstantItem(10);
+                    row.RelativeItem(2).Element(c => Bloc(c, "Contrôleur", controle.InspecteurNom,
                         $"Clôturé le {controle.ClotureLe:dd/MM/yyyy HH:mm}"));
                 });
-                col.Item().Element(c => PointsNonConformes(c, controle));
-                if (!string.IsNullOrWhiteSpace(controle.Observations))
-                    col.Item().Element(c => Bloc(c, "Observations (points mineurs)", controle.Observations.Split(Environment.NewLine)));
+
+                foreach (var (niveau, titre) in new[]
+                {
+                    (NiveauDefaillance.Critique, "Défaillances critiques"),
+                    (NiveauDefaillance.Majeure, "Défaillances majeures"),
+                    (NiveauDefaillance.Mineure, "Défaillances mineures")
+                })
+                {
+                    var lignes = controle.Resultats
+                        .SelectMany(r => r.Defaillances.Where(d => d.Niveau == niveau)
+                            .Select(d => new LigneDefaillance(d.Code, d.Libelle, $"{r.Code} {r.Libelle}", r.Commentaire)))
+                        .ToList();
+                    col.Item().Element(c => Defaillances(c, titre, niveau, lignes));
+                }
             });
 
             page.Footer().AlignCenter().Text(t =>
             {
-                t.Span("Document fictif généré par l'application de démonstration ControleTechnique — page ");
+                t.DefaultTextStyle(s => s.FontSize(8).FontColor(Colors.Grey.Darken1));
+                t.Span("Établi selon l'arrêté du 18 juin 1991 modifié — application de démonstration, non agréée — page ");
                 t.CurrentPageNumber();
             });
         })).GeneratePdf();
 
-        var nomFichier = $"PV_{controle.Immatriculation}_{controle.DateControle:yyyyMMdd}.pdf";
-        return (contenu, nomFichier);
+        return (contenu, $"PV_{controle.Immatriculation}_{controle.DateControle:yyyyMMdd}.pdf");
     }
 
     private static void Resultat(IContainer conteneur, ControleDto controle)
     {
-        var favorable = controle.Resultat == ResultatControle.Favorable;
-        conteneur.Background(favorable ? Colors.Green.Lighten4 : Colors.Red.Lighten4).Padding(12).Column(col =>
+        var (titre, fond, texte) = controle.Resultat switch
         {
-            col.Item().Text(favorable ? "FAVORABLE" : "DÉFAVORABLE").FontSize(16).Bold()
-                .FontColor(favorable ? Colors.Green.Darken3 : Colors.Red.Darken3);
-            col.Item().Text(controle.DateFinValidite is { } fin
-                ? $"Valide jusqu'au {fin:dd/MM/yyyy}"
-                : controle.EstContreVisite
-                    ? "Aucune date de validité : un nouveau contrôle complet est nécessaire."
-                    : "Aucune date de validité : une contre-visite est nécessaire.");
+            ResultatControle.Favorable => ("FAVORABLE (A)", Colors.Green.Lighten4, Colors.Green.Darken3),
+            ResultatControle.DefavorableMajeur => ("DÉFAVORABLE POUR DÉFAILLANCES MAJEURES (S)", Colors.Orange.Lighten4, Colors.Orange.Darken4),
+            _ => ("DÉFAVORABLE POUR DÉFAILLANCES CRITIQUES (R)", Colors.Red.Lighten4, Colors.Red.Darken3)
+        };
+
+        conteneur.Background(fond).Padding(10).Column(col =>
+        {
+            col.Item().Text(titre).FontSize(14).Bold().FontColor(texte);
+            switch (controle.Resultat)
+            {
+                case ResultatControle.Favorable:
+                    col.Item().Text($"Prochain contrôle technique périodique avant le {controle.DateFinValidite:dd/MM/yyyy}.");
+                    break;
+                case ResultatControle.DefavorableMajeur:
+                    col.Item().Text($"Contre-visite à effectuer au plus tard le {controle.DateLimiteContreVisite:dd/MM/yyyy}.");
+                    break;
+                default:
+                    col.Item().Text($"Le véhicule ne peut circuler que jusqu'à minuit le {controle.DateFinValidite:dd/MM/yyyy}.").Bold();
+                    col.Item().Text($"Contre-visite à effectuer au plus tard le {controle.DateLimiteContreVisite:dd/MM/yyyy}.");
+                    break;
+            }
         });
     }
 
     private static void Bloc(IContainer conteneur, string titre, params string[] lignes)
     {
-        conteneur.Border(1).BorderColor(Colors.Grey.Lighten2).Padding(8).Column(col =>
+        conteneur.Border(1).BorderColor(Colors.Grey.Lighten2).Padding(7).Column(col =>
         {
             col.Item().Text(titre).Bold().FontColor(Colors.Grey.Darken2);
             foreach (var ligne in lignes)
@@ -89,15 +123,21 @@ public class PvService(IControleService controles) : IPvService
         });
     }
 
-    private static void PointsNonConformes(IContainer conteneur, ControleDto controle)
+    private static void Defaillances(IContainer conteneur, string titre, NiveauDefaillance niveau, List<LigneDefaillance> lignes)
     {
-        var nonConformes = controle.Resultats.Where(r => r.Etat == EtatPoint.NonConforme).ToList();
+        var couleur = niveau switch
+        {
+            NiveauDefaillance.Critique => Colors.Red.Darken3,
+            NiveauDefaillance.Majeure => Colors.Orange.Darken4,
+            _ => Colors.Grey.Darken3
+        };
+
         conteneur.Column(col =>
         {
-            col.Item().PaddingBottom(5).Text($"Points non conformes ({nonConformes.Count})").Bold().FontSize(12);
-            if (nonConformes.Count == 0)
+            col.Item().PaddingBottom(4).Text($"{titre} ({lignes.Count})").Bold().FontSize(11).FontColor(couleur);
+            if (lignes.Count == 0)
             {
-                col.Item().Text("Aucun point non conforme.");
+                col.Item().Text("Aucune.").FontColor(Colors.Grey.Darken1);
                 return;
             }
 
@@ -105,22 +145,22 @@ public class PvService(IControleService controles) : IPvService
             {
                 table.ColumnsDefinition(c =>
                 {
+                    c.ConstantColumn(62);
+                    c.RelativeColumn(4);
+                    c.RelativeColumn(3);
                     c.RelativeColumn(2);
-                    c.RelativeColumn(3);
-                    c.RelativeColumn(1);
-                    c.RelativeColumn(3);
                 });
                 table.Header(h =>
                 {
-                    foreach (var entete in new[] { "Catégorie", "Point", "Gravité", "Commentaire" })
-                        h.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text(entete).Bold();
+                    foreach (var entete in new[] { "Code", "Défaillance", "Point de contrôle", "Commentaire" })
+                        h.Cell().Background(Colors.Grey.Lighten3).Padding(3).Text(entete).Bold();
                 });
-                foreach (var r in nonConformes)
+                foreach (var l in lignes)
                 {
-                    table.Cell().Padding(4).Text(r.Categorie);
-                    table.Cell().Padding(4).Text(r.Libelle);
-                    table.Cell().Padding(4).Text(r.Gravite.ToString());
-                    table.Cell().Padding(4).Text(r.Commentaire ?? "");
+                    table.Cell().Padding(3).Text(l.Code);
+                    table.Cell().Padding(3).Text(l.Libelle);
+                    table.Cell().Padding(3).Text(l.Point);
+                    table.Cell().Padding(3).Text(l.Commentaire ?? "");
                 }
             });
         });
