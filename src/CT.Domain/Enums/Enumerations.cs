@@ -7,11 +7,11 @@ public enum Role
     Reception = 2
 }
 
-public enum Gravite
+public enum NiveauDefaillance
 {
-    Mineur = 0,
-    Majeur = 1,
-    Critique = 2
+    Mineure = 1,
+    Majeure = 2,
+    Critique = 3
 }
 
 public enum EtatPoint
@@ -30,15 +30,14 @@ public enum StatutControle
 public enum ResultatControle
 {
     Favorable = 0,
-    Defavorable = 1
+    DefavorableMajeur = 1,
+    DefavorableCritique = 2
 }
 
 public enum TypeVehicule
 {
     VoitureParticuliere = 0,
-    Utilitaire = 1,
-    PoidsLourd = 2,
-    Moto = 3
+    UtilitaireLeger = 1
 }
 
 public enum Energie
@@ -48,4 +47,12 @@ public enum Energie
     Hybride = 2,
     Electrique = 3,
     Gpl = 4
+}
+
+public enum StatutEcheance
+{
+    AJour = 0,
+    ControleEnRetard = 1,
+    ContreVisiteAFaire = 2,
+    CirculationInterdite = 3
 }
