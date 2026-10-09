@@ -78,6 +78,12 @@ public class ControleConfiguration : IEntityTypeConfiguration<Controle>
         builder.ToTable("Controle");
         builder.Property(c => c.Observations).HasMaxLength(2000);
         builder.Ignore(c => c.EstCloture);
+        builder.Ignore(c => c.EstContreVisite);
+
+        builder.HasOne(c => c.ControleInitial)
+            .WithOne(c => c.ContreVisite)
+            .HasForeignKey<Controle>(c => c.ControleInitialId)
+            .OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(c => c.DateControle);
 
         builder.HasOne(c => c.Vehicule)
