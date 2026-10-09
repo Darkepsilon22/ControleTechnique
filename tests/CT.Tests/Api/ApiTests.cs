@@ -141,6 +141,50 @@ public class ApiTests(CtApiFactory factory) : IClassFixture<CtApiFactory>
     }
 
     [Fact]
+    public async Task Une_contre_visite_reverifie_les_points_non_conformes_d_un_controle_defavorable()
+    {
+        var reception = await factory.ClientConnecteAsync(DbSeeder.EmailReception);
+        var inspecteur = await factory.ClientConnecteAsync(DbSeeder.EmailInspecteur);
+        var proprietaire = await PremierProprietaireAsync();
+        var vehicule = await (await reception.PostAsJsonAsync("/api/vehicules", Vehicule("CV-200-RE", "VF1CONTREVISITE01", proprietaire), Json))
+            .Content.ReadFromJsonAsync<VehiculeDto>(Json);
+
+        var initial = await (await inspecteur.PostAsJsonAsync("/api/controles", new OuvrirControleRequete(vehicule!.Id, 90_000), Json))
+            .Content.ReadFromJsonAsync<ControleDto>(Json);
+        var points = await inspecteur.GetFromJsonAsync<List<PointControleDto>>("/api/points-controle", Json);
+        var critique = points!.First(p => p.Gravite == Gravite.Critique);
+        var saisies = points!.Where(p => p.Actif)
+            .Select(p => new SaisiePointRequete(p.Id, p.Id == critique.Id ? EtatPoint.NonConforme : EtatPoint.Conforme, null))
+            .ToList();
+        await inspecteur.PutAsJsonAsync($"/api/controles/{initial!.Id}", new SaisirControleRequete(null, saisies), Json);
+        var initialCloture = await (await inspecteur.PostAsync($"/api/controles/{initial.Id}/cloturer", null))
+            .Content.ReadFromJsonAsync<ControleDto>(Json);
+        Assert.Equal(ResultatControle.Defavorable, initialCloture!.Resultat);
+
+        var ouverture = await inspecteur.PostAsJsonAsync($"/api/controles/{initial.Id}/contre-visite", new OuvrirContreVisiteRequete(90_500), Json);
+        Assert.Equal(HttpStatusCode.Created, ouverture.StatusCode);
+        var contreVisite = await ouverture.Content.ReadFromJsonAsync<ControleDto>(Json);
+        Assert.Equal([critique.Id], contreVisite!.PointsContreVisite);
+
+        var hors = await inspecteur.PutAsJsonAsync($"/api/controles/{contreVisite.Id}",
+            new SaisirControleRequete(null, [new SaisiePointRequete(points.First(p => p.Id != critique.Id).Id, EtatPoint.Conforme, null)]), Json);
+        Assert.Equal(HttpStatusCode.BadRequest, hors.StatusCode);
+
+        await inspecteur.PutAsJsonAsync($"/api/controles/{contreVisite.Id}",
+            new SaisirControleRequete(null, [new SaisiePointRequete(critique.Id, EtatPoint.Conforme, "Réparé")]), Json);
+        var cloture = await (await inspecteur.PostAsync($"/api/controles/{contreVisite.Id}/cloturer", null))
+            .Content.ReadFromJsonAsync<ControleDto>(Json);
+        Assert.Equal(ResultatControle.Favorable, cloture!.Resultat);
+        Assert.Equal(DateOnly.FromDateTime(initial.DateControle).AddMonths(12), cloture.DateFinValidite);
+
+        var seconde = await inspecteur.PostAsJsonAsync($"/api/controles/{initial.Id}/contre-visite", new OuvrirContreVisiteRequete(91_000), Json);
+        Assert.Equal(HttpStatusCode.Conflict, seconde.StatusCode);
+
+        var pv = await reception.GetAsync($"/api/controles/{contreVisite.Id}/pv");
+        Assert.Equal(HttpStatusCode.OK, pv.StatusCode);
+    }
+
+    [Fact]
     public async Task Un_inspecteur_ne_peut_pas_modifier_le_controle_d_un_autre()
     {
         var admin = await factory.ClientConnecteAsync(DbSeeder.EmailAdmin);
