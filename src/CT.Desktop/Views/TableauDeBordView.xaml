@@ -21,29 +21,35 @@
                 <TextBlock Text="Tableau de bord" Style="{StaticResource TitrePage}" Margin="0"/>
             </DockPanel>
 
-            <UniformGrid Columns="4" Margin="0,0,0,16">
+            <UniformGrid Columns="5" Margin="0,0,0,16">
                 <Border Style="{StaticResource CarteStyle}" Margin="0,0,12,0">
                     <StackPanel>
-                        <TextBlock Text="Contrôles clôturés" Foreground="{StaticResource TexteSecondaire}"/>
+                        <TextBlock Text="Contrôles périodiques" Foreground="{StaticResource TexteSecondaire}"/>
                         <TextBlock Text="{Binding Statistiques.TotalControles}" Style="{StaticResource ValeurKpi}"/>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource CarteStyle}" Margin="0,0,12,0">
                     <StackPanel>
-                        <TextBlock Text="Taux de favorables" Foreground="{StaticResource TexteSecondaire}"/>
+                        <TextBlock Text="Favorables (A)" Foreground="{StaticResource TexteSecondaire}"/>
                         <TextBlock Text="{Binding Statistiques.TauxFavorable, StringFormat={}{0} %}" Style="{StaticResource ValeurKpi}" Foreground="{StaticResource Succes}"/>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource CarteStyle}" Margin="0,0,12,0">
                     <StackPanel>
-                        <TextBlock Text="Défavorables" Foreground="{StaticResource TexteSecondaire}"/>
-                        <TextBlock Text="{Binding Statistiques.Defavorables}" Style="{StaticResource ValeurKpi}" Foreground="{StaticResource Erreur}"/>
+                        <TextBlock Text="Défavorables (S)" Foreground="{StaticResource TexteSecondaire}"/>
+                        <TextBlock Text="{Binding Statistiques.DefavorablesMajeurs}" Style="{StaticResource ValeurKpi}" Foreground="#E37400"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource CarteStyle}" Margin="0,0,12,0">
+                    <StackPanel>
+                        <TextBlock Text="Défavorables (R)" Foreground="{StaticResource TexteSecondaire}"/>
+                        <TextBlock Text="{Binding Statistiques.DefavorablesCritiques}" Style="{StaticResource ValeurKpi}" Foreground="{StaticResource Erreur}"/>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource CarteStyle}">
                     <StackPanel>
-                        <TextBlock Text="Contrôles en cours" Foreground="{StaticResource TexteSecondaire}"/>
-                        <TextBlock Text="{Binding Statistiques.ControlesEnCours}" Style="{StaticResource ValeurKpi}"/>
+                        <TextBlock Text="Contre-visites" Foreground="{StaticResource TexteSecondaire}"/>
+                        <TextBlock Text="{Binding Statistiques.ContreVisites}" Style="{StaticResource ValeurKpi}"/>
                     </StackPanel>
                 </Border>
             </UniformGrid>
@@ -85,12 +91,19 @@
 
                 <Border Grid.Column="1" Style="{StaticResource CarteStyle}">
                     <StackPanel>
-                        <TextBlock Text="Points les plus souvent non conformes" Style="{StaticResource TitreCarte}"/>
-                        <DataGrid ItemsSource="{Binding PointsNonConformes}" HeadersVisibility="Column">
+                        <TextBlock Text="Défaillances les plus fréquentes" Style="{StaticResource TitreCarte}"/>
+                        <DataGrid ItemsSource="{Binding Defaillances}" HeadersVisibility="Column">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Point" Binding="{Binding Libelle}" Width="*"/>
-                                <DataGridTextColumn Header="Catégorie" Binding="{Binding Categorie}" Width="*"/>
-                                <DataGridTextColumn Header="Nombre" Binding="{Binding Nombre}" Width="70"/>
+                                <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="80"/>
+                                <DataGridTemplateColumn Header="Défaillance" Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Libelle}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Libelle}"
+                                                       Foreground="{Binding Niveau, Converter={StaticResource CouleurResultat}}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Nombre" Binding="{Binding Nombre}" Width="65"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </StackPanel>

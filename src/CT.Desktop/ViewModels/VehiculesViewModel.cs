@@ -22,7 +22,7 @@ public partial class VehiculesViewModel(ApiClient api, Session session, Navigati
     [ObservableProperty] private string _numeroChassis = "";
     [ObservableProperty] private string _marque = "";
     [ObservableProperty] private string _modele = "";
-    [ObservableProperty] private int _annee = DateTime.Today.Year;
+    [ObservableProperty] private DateTime _datePremiereImmatriculation = DateTime.Today;
     [ObservableProperty] private TypeVehicule _typeVehicule;
     [ObservableProperty] private Energie _energie;
     [ObservableProperty] private string? _rechercheProprietaire;
@@ -86,7 +86,7 @@ public partial class VehiculesViewModel(ApiClient api, Session session, Navigati
         NumeroChassis = value.NumeroChassis;
         Marque = value.Marque;
         Modele = value.Modele;
-        Annee = value.Annee;
+        DatePremiereImmatriculation = value.DatePremiereImmatriculation.ToDateTime(TimeOnly.MinValue);
         TypeVehicule = value.TypeVehicule;
         Energie = value.Energie;
         Proprietaires.Clear();
@@ -108,7 +108,7 @@ public partial class VehiculesViewModel(ApiClient api, Session session, Navigati
         VehiculeSelectionne = null;
         EditionId = null;
         Immatriculation = NumeroChassis = Marque = Modele = "";
-        Annee = DateTime.Today.Year;
+        DatePremiereImmatriculation = DateTime.Today;
         TypeVehicule = default;
         Energie = default;
         ProprietaireSelectionne = null;
@@ -135,7 +135,8 @@ public partial class VehiculesViewModel(ApiClient api, Session session, Navigati
             return;
         }
 
-        var requete = new VehiculeRequete(Immatriculation, NumeroChassis, Marque, Modele, Annee, TypeVehicule, Energie, ProprietaireSelectionne.Id);
+        var requete = new VehiculeRequete(Immatriculation, NumeroChassis, Marque, Modele,
+            DateOnly.FromDateTime(DatePremiereImmatriculation), TypeVehicule, Energie, ProprietaireSelectionne.Id);
         VehiculeDto? enregistre = null;
         var ok = await ExecuterAsync(async () =>
             enregistre = EditionId is { } id

@@ -35,8 +35,8 @@
 
                 <DataGrid x:Name="GrilleVehicules" ItemsSource="{Binding Vehicules}" SelectedItem="{Binding VehiculeSelectionne}">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Immatriculation" Binding="{Binding Immatriculation}" Width="115"/>
-                        <DataGridTextColumn Header="Véhicule" Width="*" MinWidth="130">
+                        <DataGridTextColumn Header="Immatriculation" Binding="{Binding Immatriculation}" Width="105"/>
+                        <DataGridTextColumn Header="Véhicule" Width="*" MinWidth="105">
                             <DataGridTextColumn.Binding>
                                 <MultiBinding StringFormat="{}{0} {1}">
                                     <Binding Path="Marque"/>
@@ -44,10 +44,19 @@
                                 </MultiBinding>
                             </DataGridTextColumn.Binding>
                         </DataGridTextColumn>
-                        <DataGridTextColumn Header="Année" Binding="{Binding Annee}" Width="55"/>
-                        <DataGridTextColumn Header="Énergie" Binding="{Binding Energie, Converter={StaticResource Libelle}}" Width="80"/>
-                        <DataGridTextColumn Header="Propriétaire" Binding="{Binding ProprietaireNom}" Width="*" MinWidth="130"/>
-                        <DataGridTextColumn Header="Valide jusqu'au" Binding="{Binding DateFinValidite, StringFormat=dd/MM/yyyy}" Width="105"/>
+                        <DataGridTextColumn Header="1re immat." Binding="{Binding DatePremiereImmatriculation, StringFormat=dd/MM/yyyy}" Width="108"/>
+                        <DataGridTextColumn Header="Propriétaire" Binding="{Binding ProprietaireNom}" Width="*" MinWidth="105"/>
+                        <DataGridTemplateColumn Header="Échéance" Width="175">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Foreground="{Binding Echeance, Converter={StaticResource CouleurResultat}}"
+                                               ToolTip="{Binding Echeance, Converter={StaticResource Libelle}}">
+                                        <Run Text="{Binding DateLimiteControle, Mode=OneWay, StringFormat=dd/MM/yyyy}"/>
+                                        <Run Text="{Binding Echeance, Mode=OneWay, Converter={StaticResource Libelle}}" FontSize="11"/>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                     </DataGrid.Columns>
                 </DataGrid>
             </DockPanel>
@@ -73,8 +82,8 @@
                                 <TextBox Text="{Binding Immatriculation}" CharacterCasing="Upper"/>
                                 <TextBlock Text="Marque" Style="{StaticResource Etiquette}"/>
                                 <TextBox Text="{Binding Marque}"/>
-                                <TextBlock Text="Année" Style="{StaticResource Etiquette}"/>
-                                <TextBox Text="{Binding Annee}"/>
+                                <TextBlock Text="1re immatriculation (B)" Style="{StaticResource Etiquette}"/>
+                                <DatePicker SelectedDate="{Binding DatePremiereImmatriculation}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="N° de châssis (VIN)" Style="{StaticResource Etiquette}"/>

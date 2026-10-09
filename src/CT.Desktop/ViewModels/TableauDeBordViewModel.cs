@@ -17,7 +17,7 @@ public partial class TableauDeBordViewModel(ApiClient api) : ViewModelBase
     [ObservableProperty] private StatistiquesDto? _statistiques;
 
     public ObservableCollection<BarreMois> Barres { get; } = [];
-    public ObservableCollection<PointNonConformeDto> PointsNonConformes { get; } = [];
+    public ObservableCollection<DefaillanceFrequenteDto> Defaillances { get; } = [];
 
     public override Task ChargerAsync() => ActualiserAsync();
 
@@ -33,8 +33,8 @@ public partial class TableauDeBordViewModel(ApiClient api) : ViewModelBase
             Barres.Add(new BarreMois(mois.Libelle, mois.Total, mois.Favorables,
                 HauteurMax * mois.Total / max, HauteurMax * mois.Favorables / max));
 
-        PointsNonConformes.Clear();
-        foreach (var point in stats.PointsLesPlusNonConformes)
-            PointsNonConformes.Add(point);
+        Defaillances.Clear();
+        foreach (var defaillance in stats.DefaillancesLesPlusFrequentes)
+            Defaillances.Add(defaillance);
     });
 }

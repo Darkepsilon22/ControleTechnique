@@ -44,6 +44,8 @@ public class ApiClient(HttpClient http, Session session)
 
     public Task<List<PointControleDto>> ListerPointsAsync() => GetAsync<List<PointControleDto>>("api/points-controle");
     public Task<PointControleDto> EnregistrerPointAsync(PointControleRequete r) => PostAsync<PointControleDto>("api/points-controle", r);
+    public Task<PointControleDto> EnregistrerDefaillanceAsync(Guid pointId, DefaillanceRequete r) =>
+        PostAsync<PointControleDto>($"api/points-controle/{pointId}/defaillances", r);
 
     public Task<PageResultat<ControleResumeDto>> ListerControlesAsync(StatutControle? statut, string? recherche, bool mesControles, int page = 1) =>
         GetAsync<PageResultat<ControleResumeDto>>(

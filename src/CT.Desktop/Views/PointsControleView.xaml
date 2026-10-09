@@ -8,13 +8,17 @@
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition/>
-            <ColumnDefinition Width="340"/>
+            <ColumnDefinition Width="430"/>
         </Grid.ColumnDefinitions>
 
-        <TextBlock Text="Points de contrôle" Style="{StaticResource TitrePage}"/>
+        <StackPanel>
+            <TextBlock Text="Points de contrôle et défaillances" Style="{StaticResource TitrePage}" Margin="0"/>
+            <TextBlock Text="Catalogue de l'annexe I de l'arrêté du 18 juin 1991 modifié (extrait)." Margin="0,2,0,16"
+                       Foreground="{StaticResource TexteSecondaire}"/>
+        </StackPanel>
 
         <Border Grid.Row="1" Style="{StaticResource CarteStyle}" Margin="0,0,16,0">
-            <DataGrid ItemsSource="{Binding PointsParCategorie}" SelectedItem="{Binding PointSelectionne}" ColumnWidth="SizeToHeader">
+            <DataGrid ItemsSource="{Binding PointsParFonction}" SelectedItem="{Binding PointSelectionne}" ColumnWidth="SizeToHeader">
                 <DataGrid.GroupStyle>
                     <GroupStyle>
                         <GroupStyle.HeaderTemplate>
@@ -25,40 +29,79 @@
                     </GroupStyle>
                 </DataGrid.GroupStyle>
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Libellé" Binding="{Binding Libelle}" Width="400"/>
-                    <DataGridTemplateColumn Header="Gravité" Width="100">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Gravite}" Foreground="{Binding Gravite, Converter={StaticResource CouleurResultat}}"/>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <DataGridCheckBoxColumn Header="Actif" Binding="{Binding Actif}" Width="60"/>
+                    <DataGridTextColumn Header="Code" Binding="{Binding Point.Code}" Width="70"/>
+                    <DataGridTextColumn Header="Point de contrôle" Binding="{Binding Point.Libelle}" Width="300"/>
+                    <DataGridTextColumn Header="Défaillances" Binding="{Binding Point.Defaillances.Count}" Width="90"/>
+                    <DataGridCheckBoxColumn Header="Actif" Binding="{Binding Point.Actif}" Width="50"/>
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
 
-        <StackPanel Grid.Row="1" Grid.Column="1">
-            <Border Style="{StaticResource CarteStyle}">
-                <StackPanel>
-                    <DockPanel>
-                        <Button DockPanel.Dock="Right" Content="Nouveau" Command="{Binding NouveauCommand}" Style="{StaticResource BoutonSecondaire}" Margin="0"/>
-                        <TextBlock Text="{Binding TitreFormulaire}" Style="{StaticResource TitreCarte}"/>
-                    </DockPanel>
-                    <TextBlock Text="Catégorie" Style="{StaticResource Etiquette}"/>
-                    <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding Categorie}" DisplayMemberPath="Libelle"/>
-                    <TextBlock Text="Libellé" Style="{StaticResource Etiquette}"/>
-                    <TextBox Text="{Binding Libelle}"/>
-                    <TextBlock Text="Gravité" Style="{StaticResource Etiquette}"/>
-                    <ComboBox ItemsSource="{Binding Gravites}" SelectedItem="{Binding Gravite}"/>
-                    <CheckBox Content="Actif (proposé lors des contrôles)" IsChecked="{Binding Actif}" Margin="0,12,0,0"/>
-                    <TextBlock Text="Un point désactivé n'est jamais supprimé : les anciens contrôles le conservent."
-                               FontSize="11" Foreground="{StaticResource TexteSecondaire}" TextWrapping="Wrap" Margin="0,6,0,0"/>
-                    <Button Content="Enregistrer" Command="{Binding EnregistrerCommand}" Margin="0,16,0,0" HorizontalAlignment="Left"/>
-                </StackPanel>
-            </Border>
-            <TextBlock Text="{Binding Erreur}" Style="{StaticResource MessageErreur}"/>
-            <TextBlock Text="{Binding Message}" Style="{StaticResource MessageSucces}"/>
-        </StackPanel>
+        <ScrollViewer Grid.Row="1" Grid.Column="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <Border Style="{StaticResource CarteStyle}">
+                    <StackPanel>
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Nouveau point" Command="{Binding NouveauPointCommand}" Style="{StaticResource BoutonSecondaire}" Margin="0"/>
+                            <TextBlock Text="{Binding TitrePoint}" Style="{StaticResource TitreCarte}"/>
+                        </DockPanel>
+                        <TextBlock Text="Fonction" Style="{StaticResource Etiquette}"/>
+                        <ComboBox ItemsSource="{Binding Fonctions}" SelectedItem="{Binding Fonction}" DisplayMemberPath="Affichage"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="110"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Code" Style="{StaticResource Etiquette}"/>
+                                <TextBox Text="{Binding CodePoint}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Libellé" Style="{StaticResource Etiquette}"/>
+                                <TextBox Text="{Binding LibellePoint}"/>
+                            </StackPanel>
+                        </Grid>
+                        <CheckBox Content="Actif (contrôlé lors des visites)" IsChecked="{Binding PointActif}" Margin="0,10,0,0"/>
+                        <Button Content="Enregistrer le point" Command="{Binding EnregistrerPointCommand}" Margin="0,12,0,0" HorizontalAlignment="Left"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource CarteStyle}" Margin="0,16,0,0"
+                        Visibility="{Binding PeutGererDefaillances, Converter={StaticResource BoolVisibilite}}">
+                    <StackPanel>
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Nouvelle" Command="{Binding NouvelleDefaillanceCommand}" Style="{StaticResource BoutonSecondaire}" Margin="0"/>
+                            <TextBlock Text="Défaillances du point" Style="{StaticResource TitreCarte}"/>
+                        </DockPanel>
+                        <DataGrid ItemsSource="{Binding Defaillances}" SelectedItem="{Binding DefaillanceSelectionnee}" MaxHeight="220">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="85"/>
+                                <DataGridTextColumn Header="Libellé" Binding="{Binding Libelle}" Width="*"/>
+                                <DataGridTemplateColumn Header="Niveau" Width="70">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Niveau}" Foreground="{Binding Niveau, Converter={StaticResource CouleurResultat}}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridCheckBoxColumn Header="Actif" Binding="{Binding Actif}" Width="45"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock Text="{Binding TitreDefaillance}" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                        <TextBlock Text="Code (le dernier chiffre fixe le niveau : 1 mineure, 2 majeure, 3 critique)"
+                                   Style="{StaticResource Etiquette}" TextWrapping="Wrap"/>
+                        <TextBox Text="{Binding CodeDefaillance}"/>
+                        <TextBlock Text="Libellé" Style="{StaticResource Etiquette}"/>
+                        <TextBox Text="{Binding LibelleDefaillance}" TextWrapping="Wrap" AcceptsReturn="False"/>
+                        <CheckBox Content="Active" IsChecked="{Binding DefaillanceActive}" Margin="0,10,0,0"/>
+                        <Button Content="Enregistrer la défaillance" Command="{Binding EnregistrerDefaillanceCommand}" Margin="0,12,0,0" HorizontalAlignment="Left"/>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="{Binding Erreur}" Style="{StaticResource MessageErreur}"/>
+                <TextBlock Text="{Binding Message}" Style="{StaticResource MessageSucces}"/>
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </UserControl>

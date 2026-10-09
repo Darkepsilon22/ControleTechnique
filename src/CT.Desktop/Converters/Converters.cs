@@ -10,15 +10,21 @@ public class LibelleEnumConverter : IValueConverter
 {
     private static readonly Dictionary<string, string> Libelles = new()
     {
-        ["NonConforme"] = "Non conforme",
+        ["NonConforme"] = "Défaillance",
         ["NonApplicable"] = "Non applicable",
         ["Cloture"] = "Clôturé",
-        ["Defavorable"] = "Défavorable",
+        ["Favorable"] = "Favorable (A)",
+        ["DefavorableMajeur"] = "Défavorable (S)",
+        ["DefavorableCritique"] = "Défavorable (R)",
         ["Reception"] = "Réception",
-        ["VoitureParticuliere"] = "Voiture particulière",
-        ["PoidsLourd"] = "Poids lourd",
+        ["VoitureParticuliere"] = "Voiture particulière (M1)",
+        ["UtilitaireLeger"] = "Utilitaire léger (N1)",
         ["Electrique"] = "Électrique",
-        ["Gpl"] = "GPL"
+        ["Gpl"] = "GPL",
+        ["AJour"] = "À jour",
+        ["ControleEnRetard"] = "En retard",
+        ["ContreVisiteAFaire"] = "Contre-visite à faire",
+        ["CirculationInterdite"] = "Circulation interdite"
     };
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
@@ -60,9 +66,11 @@ public class CouleurResultatConverter : IValueConverter
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch
     {
-        ResultatControle.Favorable or EtatPoint.Conforme => Vert,
-        ResultatControle.Defavorable or EtatPoint.NonConforme or Gravite.Critique => Rouge,
-        Gravite.Majeur or StatutControle.Brouillon => Orange,
+        ResultatControle.Favorable or EtatPoint.Conforme or StatutEcheance.AJour => Vert,
+        ResultatControle.DefavorableCritique or EtatPoint.NonConforme or NiveauDefaillance.Critique
+            or StatutEcheance.ControleEnRetard or StatutEcheance.CirculationInterdite => Rouge,
+        ResultatControle.DefavorableMajeur or NiveauDefaillance.Majeure or StatutControle.Brouillon
+            or StatutEcheance.ContreVisiteAFaire => Orange,
         _ => Gris
     };
 
