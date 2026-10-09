@@ -8,8 +8,9 @@ public class CtDbContext(DbContextOptions<CtDbContext> options) : DbContext(opti
     public DbSet<Utilisateur> Utilisateurs => Set<Utilisateur>();
     public DbSet<Proprietaire> Proprietaires => Set<Proprietaire>();
     public DbSet<Vehicule> Vehicules => Set<Vehicule>();
-    public DbSet<CategoriePoint> CategoriesPoints => Set<CategoriePoint>();
+    public DbSet<Fonction> Fonctions => Set<Fonction>();
     public DbSet<PointControle> PointsControle => Set<PointControle>();
+    public DbSet<Defaillance> Defaillances => Set<Defaillance>();
     public DbSet<Controle> Controles => Set<Controle>();
     public DbSet<ResultatPoint> ResultatsPoints => Set<ResultatPoint>();
 
