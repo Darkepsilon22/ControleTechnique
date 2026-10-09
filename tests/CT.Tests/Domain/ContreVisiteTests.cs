@@ -6,128 +6,83 @@ namespace CT.Tests.Domain;
 
 public class ContreVisiteTests
 {
-    private static readonly DateTime DateInitiale = new(2026, 9, 1, 10, 0, 0);
+    private readonly CatalogueDeTest _c = new();
 
-    private readonly PointControle _freins = new() { Libelle = "Freins", Gravite = Gravite.Critique };
-    private readonly PointControle _feux = new() { Libelle = "Feux", Gravite = Gravite.Majeur };
-    private readonly PointControle _essuieGlaces = new() { Libelle = "Essuie-glaces", Gravite = Gravite.Mineur };
-
-    private IEnumerable<PointControle> Points => [_freins, _feux, _essuieGlaces];
-    private IEnumerable<Guid> PointsActifs => Points.Select(p => p.Id);
-
-    private Controle ControleCloture(EtatPoint etatFreins)
+    private static Controle ContreVisite(Controle precedent, int joursApresLePeriodique = 20)
     {
-        var controle = Controle.Ouvrir(Guid.NewGuid(), Guid.NewGuid(), DateInitiale, 50_000, DateInitiale);
-        controle.Saisir(null,
-        [
-            new SaisiePoint(_freins.Id, etatFreins, null),
-            new SaisiePoint(_feux.Id, EtatPoint.Conforme, null),
-            new SaisiePoint(_essuieGlaces.Id, EtatPoint.NonConforme, null)
-        ]);
-        RattacherPoints(controle);
-        controle.Cloturer(PointsActifs, 12, DateInitiale);
-        return controle;
+        var date = CatalogueDeTest.DateControle.AddDays(joursApresLePeriodique);
+        var contreVisite = Controle.OuvrirContreVisite(precedent, Guid.NewGuid(), date, 51_000, date);
+        contreVisite.Vehicule = precedent.Vehicule;
+        return contreVisite;
     }
-
-    private void RattacherPoints(Controle controle)
-    {
-        foreach (var resultat in controle.Resultats)
-            resultat.PointControle = Points.Single(p => p.Id == resultat.PointControleId);
-    }
-
-    private static Controle ContreVisite(Controle initial, int joursApres = 20, int kilometrage = 51_000) =>
-        Controle.OuvrirContreVisite(initial, Guid.NewGuid(), DateInitiale.AddDays(joursApres), kilometrage,
-            DateInitiale.AddDays(joursApres), delaiMois: 2);
 
     [Fact]
     public void Une_contre_visite_est_refusee_apres_un_controle_favorable()
     {
-        var initial = ControleCloture(EtatPoint.Conforme);
+        var controle = _c.ControleCloture(Energie.Essence, CatalogueDeTest.D(_c.EssuieGlace, "3.4.1.b.1"));
 
-        Assert.Throws<RegleMetierException>(() => ContreVisite(initial));
+        Assert.Throws<RegleMetierException>(() => ContreVisite(controle));
     }
 
     [Fact]
-    public void Une_contre_visite_est_refusee_si_le_controle_initial_n_est_pas_cloture()
+    public void Une_contre_visite_est_refusee_si_le_controle_n_est_pas_cloture()
     {
-        var initial = Controle.Ouvrir(Guid.NewGuid(), Guid.NewGuid(), DateInitiale, 50_000, DateInitiale);
-
-        Assert.Throws<RegleMetierException>(() => ContreVisite(initial));
+        Assert.Throws<RegleMetierException>(() => ContreVisite(_c.NouveauControle()));
     }
 
     [Fact]
-    public void Une_contre_visite_est_refusee_apres_le_delai()
+    public void Une_contre_visite_est_refusee_au_dela_de_deux_mois()
     {
-        var initial = ControleCloture(EtatPoint.NonConforme);
+        var controle = _c.ControleCloture(Energie.Essence, CatalogueDeTest.D(_c.Plaquettes, "1.1.13.a.2"));
 
-        var erreur = Assert.Throws<RegleMetierException>(() => ContreVisite(initial, joursApres: 70));
-        Assert.Contains("délai", erreur.Message);
+        var erreur = Assert.Throws<RegleMetierException>(() => ContreVisite(controle, joursApresLePeriodique: 62));
+        Assert.Contains("nouveau contrôle technique périodique", erreur.Message);
     }
 
     [Fact]
-    public void Un_kilometrage_inferieur_au_controle_initial_est_refuse()
+    public void Une_contre_visite_reverifie_les_points_selon_l_annexe_I()
     {
-        var initial = ControleCloture(EtatPoint.NonConforme);
+        var controle = _c.ControleCloture(Energie.Essence,
+            CatalogueDeTest.D(_c.Plaquettes, "1.1.13.a.2"), CatalogueDeTest.D(_c.EssuieGlace, "3.4.1.b.1"));
 
-        Assert.Throws<RegleMetierException>(() => ContreVisite(initial, kilometrage: 49_000));
+        var codes = ContreVisite(controle).PointsASaisir(_c.Points).Select(p => p.Code).Order().ToList();
+
+        Assert.Equal(["0.1.1", "1.1.13", "1.2.2", "7.11.1"], codes);
     }
 
     [Fact]
-    public void Une_contre_visite_ne_porte_que_sur_les_points_non_conformes_du_controle_initial()
+    public void Un_point_hors_contre_visite_ne_peut_pas_etre_saisi()
     {
-        var initial = ControleCloture(EtatPoint.NonConforme);
-        var contreVisite = ContreVisite(initial);
+        var contreVisite = ContreVisite(_c.ControleCloture(Energie.Essence, CatalogueDeTest.D(_c.Plaquettes, "1.1.13.a.2")));
 
-        Assert.Equal(new[] { _freins.Id, _essuieGlaces.Id }.Order(), contreVisite.PointsAVerifier(PointsActifs).Order());
-        Assert.Throws<RegleMetierException>(() =>
-            contreVisite.Saisir(null, [new SaisiePoint(_feux.Id, EtatPoint.Conforme, null)]));
+        Assert.Throws<RegleMetierException>(() => contreVisite.Saisir(null,
+            [new SaisiePoint(_c.EssuieGlace.Id, EtatPoint.Conforme, [], null)], _c.Points));
     }
 
     [Fact]
-    public void Une_contre_visite_reussie_est_favorable_et_valide_depuis_la_date_du_controle_initial()
+    public void Une_contre_visite_favorable_est_valide_deux_ans_depuis_le_controle_periodique()
     {
-        var initial = ControleCloture(EtatPoint.NonConforme);
-        var contreVisite = ContreVisite(initial);
-        contreVisite.Saisir(null,
-        [
-            new SaisiePoint(_freins.Id, EtatPoint.Conforme, "Disques remplacés"),
-            new SaisiePoint(_essuieGlaces.Id, EtatPoint.Conforme, null)
-        ]);
-        RattacherPoints(contreVisite);
+        var contreVisite = ContreVisite(_c.ControleCloture(Energie.Essence, CatalogueDeTest.D(_c.Plaquettes, "1.1.13.a.2")));
+        contreVisite.Saisir(null, _c.ToutConforme(contreVisite), _c.Points);
 
-        contreVisite.Cloturer(PointsActifs, 12, DateInitiale.AddDays(20));
+        contreVisite.Cloturer(_c.Points, CatalogueDeTest.DateControle.AddDays(20));
 
         Assert.Equal(ResultatControle.Favorable, contreVisite.Resultat);
-        Assert.Equal(new DateOnly(2027, 9, 1), contreVisite.DateFinValidite);
+        Assert.Equal(new DateOnly(2028, 9, 1), contreVisite.DateFinValidite);
     }
 
     [Fact]
-    public void La_cloture_d_une_contre_visite_exige_tous_les_points_a_reverifier()
+    public void Une_nouvelle_contre_visite_reste_possible_dans_le_delai_du_controle_periodique()
     {
-        var initial = ControleCloture(EtatPoint.NonConforme);
-        var contreVisite = ContreVisite(initial);
-        contreVisite.Saisir(null, [new SaisiePoint(_freins.Id, EtatPoint.Conforme, null)]);
-        RattacherPoints(contreVisite);
+        var premiere = ContreVisite(_c.ControleCloture(Energie.Essence, CatalogueDeTest.D(_c.Plaquettes, "1.1.13.a.2")));
+        premiere.Saisir(null, _c.ToutConforme(premiere, CatalogueDeTest.D(_c.FreinService, "1.2.2.a.2")), _c.Points);
+        premiere.Cloturer(_c.Points, CatalogueDeTest.DateControle.AddDays(20));
 
-        var erreur = Assert.Throws<RegleMetierException>(() => contreVisite.Cloturer(PointsActifs, 12, DateInitiale));
-        Assert.Contains("1 point(s)", erreur.Message);
-    }
+        var seconde = ContreVisite(premiere, joursApresLePeriodique: 50);
 
-    [Fact]
-    public void Une_contre_visite_defavorable_n_accepte_pas_de_nouvelle_contre_visite()
-    {
-        var initial = ControleCloture(EtatPoint.NonConforme);
-        var contreVisite = ContreVisite(initial);
-        contreVisite.Saisir(null,
-        [
-            new SaisiePoint(_freins.Id, EtatPoint.NonConforme, null),
-            new SaisiePoint(_essuieGlaces.Id, EtatPoint.Conforme, null)
-        ]);
-        RattacherPoints(contreVisite);
-        contreVisite.Cloturer(PointsActifs, 12, DateInitiale.AddDays(20));
-
-        Assert.Equal(ResultatControle.Defavorable, contreVisite.Resultat);
-        Assert.Null(contreVisite.DateFinValidite);
-        Assert.Throws<RegleMetierException>(() => ContreVisite(contreVisite, joursApres: 30));
+        Assert.Equal(ResultatControle.DefavorableMajeur, premiere.Resultat);
+        Assert.Equal(new DateOnly(2026, 11, 1), premiere.DateLimiteContreVisite);
+        Assert.Equal(CatalogueDeTest.DateControle, seconde.DateControlePeriodique);
+        Assert.Throws<RegleMetierException>(() => ContreVisite(premiere, joursApresLePeriodique: 70));
     }
 }

@@ -16,7 +16,8 @@ public class VehiculeEtContratsTests
 
     [Theory]
     [InlineData(typeof(D.Role), typeof(S.Role))]
-    [InlineData(typeof(D.Gravite), typeof(S.Gravite))]
+    [InlineData(typeof(D.NiveauDefaillance), typeof(S.NiveauDefaillance))]
+    [InlineData(typeof(D.StatutEcheance), typeof(S.StatutEcheance))]
     [InlineData(typeof(D.EtatPoint), typeof(S.EtatPoint))]
     [InlineData(typeof(D.StatutControle), typeof(S.StatutControle))]
     [InlineData(typeof(D.ResultatControle), typeof(S.ResultatControle))]

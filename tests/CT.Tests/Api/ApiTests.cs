@@ -114,20 +114,17 @@ public class ApiTests(CtApiFactory factory) : IClassFixture<CtApiFactory>
         var pvAvantCloture = await reception.GetAsync($"/api/controles/{controle!.Id}/pv");
         Assert.Equal(HttpStatusCode.Conflict, pvAvantCloture.StatusCode);
 
-        var points = await inspecteur.GetFromJsonAsync<List<PointControleDto>>("/api/points-controle", Json);
-        var mineur = points!.First(p => p.Gravite == Gravite.Mineur);
-        var saisies = points!.Where(p => p.Actif)
-            .Select(p => new SaisiePointRequete(p.Id, p.Id == mineur.Id ? EtatPoint.NonConforme : EtatPoint.Conforme, null))
-            .ToList();
-        var saisie = await inspecteur.PutAsJsonAsync($"/api/controles/{controle.Id}", new SaisirControleRequete(null, saisies), Json);
+        var catalogue = await CatalogueAsync(inspecteur);
+        var saisie = await inspecteur.PutAsJsonAsync($"/api/controles/{controle.Id}",
+            new SaisirControleRequete(null, Saisies(controle, catalogue, "3.4.1.b.1")), Json);
         Assert.Equal(HttpStatusCode.OK, saisie.StatusCode);
 
         var cloture = await inspecteur.PostAsync($"/api/controles/{controle.Id}/cloturer", null);
         Assert.Equal(HttpStatusCode.OK, cloture.StatusCode);
         var clotureDto = await cloture.Content.ReadFromJsonAsync<ControleDto>(Json);
         Assert.Equal(ResultatControle.Favorable, clotureDto!.Resultat);
-        Assert.Equal(mineur.Libelle, clotureDto.Observations);
-        Assert.NotNull(clotureDto.DateFinValidite);
+        Assert.Equal(["3.4.1.b.1"], clotureDto.DefaillancesConstatees.Select(d => d.Code));
+        Assert.Equal(DateOnly.FromDateTime(controle.DateControle).AddYears(2), clotureDto.DateFinValidite);
 
         var modification = await inspecteur.PutAsJsonAsync($"/api/controles/{controle.Id}", new SaisirControleRequete(1, []), Json);
         Assert.Equal(HttpStatusCode.Conflict, modification.StatusCode);
@@ -136,46 +133,69 @@ public class ApiTests(CtApiFactory factory) : IClassFixture<CtApiFactory>
         Assert.Equal(HttpStatusCode.OK, pv.StatusCode);
         Assert.Equal("application/pdf", pv.Content.Headers.ContentType!.MediaType);
 
-        var historique = await reception.GetFromJsonAsync<List<ControleResumeDto>>($"/api/vehicules/{vehicule.Id}/controles", Json);
-        Assert.Single(historique!);
+        var vehiculeApres = await reception.GetFromJsonAsync<VehiculeDto>($"/api/vehicules/{vehicule.Id}", Json);
+        Assert.Equal(StatutEcheance.AJour, vehiculeApres!.Echeance);
+        Assert.Equal(clotureDto.DateFinValidite, vehiculeApres.DateLimiteControle);
     }
 
     [Fact]
-    public async Task Une_contre_visite_reverifie_les_points_non_conformes_d_un_controle_defavorable()
+    public async Task Une_defaillance_sans_lien_avec_le_point_est_refusee()
+    {
+        var reception = await factory.ClientConnecteAsync(DbSeeder.EmailReception);
+        var inspecteur = await factory.ClientConnecteAsync(DbSeeder.EmailInspecteur);
+        var vehicule = await (await reception.PostAsJsonAsync("/api/vehicules",
+                Vehicule("DF-300-PT", "VF1DEFAILLANCE001", await PremierProprietaireAsync()), Json))
+            .Content.ReadFromJsonAsync<VehiculeDto>(Json);
+        var controle = await (await inspecteur.PostAsJsonAsync("/api/controles", new OuvrirControleRequete(vehicule!.Id, 50_000), Json))
+            .Content.ReadFromJsonAsync<ControleDto>(Json);
+        var catalogue = await CatalogueAsync(inspecteur);
+        var freins = catalogue.Single(p => p.Code == "1.1.13");
+        var feuxStop = catalogue.Single(p => p.Code == "4.3.1");
+
+        var reponse = await inspecteur.PutAsJsonAsync($"/api/controles/{controle!.Id}", new SaisirControleRequete(null,
+            [new SaisiePointRequete(freins.Id, EtatPoint.NonConforme, [feuxStop.Defaillances[0].Id], null)]), Json);
+
+        Assert.Equal(HttpStatusCode.BadRequest, reponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Une_contre_visite_reverifie_les_points_selon_l_annexe_I()
     {
         var reception = await factory.ClientConnecteAsync(DbSeeder.EmailReception);
         var inspecteur = await factory.ClientConnecteAsync(DbSeeder.EmailInspecteur);
         var proprietaire = await PremierProprietaireAsync();
         var vehicule = await (await reception.PostAsJsonAsync("/api/vehicules", Vehicule("CV-200-RE", "VF1CONTREVISITE01", proprietaire), Json))
             .Content.ReadFromJsonAsync<VehiculeDto>(Json);
+        var catalogue = await CatalogueAsync(inspecteur);
 
         var initial = await (await inspecteur.PostAsJsonAsync("/api/controles", new OuvrirControleRequete(vehicule!.Id, 90_000), Json))
             .Content.ReadFromJsonAsync<ControleDto>(Json);
-        var points = await inspecteur.GetFromJsonAsync<List<PointControleDto>>("/api/points-controle", Json);
-        var critique = points!.First(p => p.Gravite == Gravite.Critique);
-        var saisies = points!.Where(p => p.Actif)
-            .Select(p => new SaisiePointRequete(p.Id, p.Id == critique.Id ? EtatPoint.NonConforme : EtatPoint.Conforme, null))
-            .ToList();
-        await inspecteur.PutAsJsonAsync($"/api/controles/{initial!.Id}", new SaisirControleRequete(null, saisies), Json);
+        await inspecteur.PutAsJsonAsync($"/api/controles/{initial!.Id}",
+            new SaisirControleRequete(null, Saisies(initial, catalogue, "4.3.1.a.3", "3.4.1.b.1")), Json);
         var initialCloture = await (await inspecteur.PostAsync($"/api/controles/{initial.Id}/cloturer", null))
             .Content.ReadFromJsonAsync<ControleDto>(Json);
-        Assert.Equal(ResultatControle.Defavorable, initialCloture!.Resultat);
+        Assert.Equal(ResultatControle.DefavorableCritique, initialCloture!.Resultat);
+        Assert.Equal(DateOnly.FromDateTime(initial.DateControle), initialCloture.DateFinValidite);
 
         var ouverture = await inspecteur.PostAsJsonAsync($"/api/controles/{initial.Id}/contre-visite", new OuvrirContreVisiteRequete(90_500), Json);
         Assert.Equal(HttpStatusCode.Created, ouverture.StatusCode);
         var contreVisite = await ouverture.Content.ReadFromJsonAsync<ControleDto>(Json);
-        Assert.Equal([critique.Id], contreVisite!.PointsContreVisite);
+        var codes = catalogue.Where(p => contreVisite!.PointsASaisir.Contains(p.Id)).Select(p => p.Code).ToList();
+        Assert.Contains("4.3.1", codes);
+        Assert.Contains("0.1.1", codes);
+        Assert.Contains("7.11.1", codes);
+        Assert.DoesNotContain("3.4.1", codes);
 
-        var hors = await inspecteur.PutAsJsonAsync($"/api/controles/{contreVisite.Id}",
-            new SaisirControleRequete(null, [new SaisiePointRequete(points.First(p => p.Id != critique.Id).Id, EtatPoint.Conforme, null)]), Json);
+        var hors = await inspecteur.PutAsJsonAsync($"/api/controles/{contreVisite!.Id}", new SaisirControleRequete(null,
+            [new SaisiePointRequete(catalogue.Single(p => p.Code == "3.4.1").Id, EtatPoint.Conforme, [], null)]), Json);
         Assert.Equal(HttpStatusCode.BadRequest, hors.StatusCode);
 
         await inspecteur.PutAsJsonAsync($"/api/controles/{contreVisite.Id}",
-            new SaisirControleRequete(null, [new SaisiePointRequete(critique.Id, EtatPoint.Conforme, "Réparé")]), Json);
+            new SaisirControleRequete(null, Saisies(contreVisite, catalogue)), Json);
         var cloture = await (await inspecteur.PostAsync($"/api/controles/{contreVisite.Id}/cloturer", null))
             .Content.ReadFromJsonAsync<ControleDto>(Json);
         Assert.Equal(ResultatControle.Favorable, cloture!.Resultat);
-        Assert.Equal(DateOnly.FromDateTime(initial.DateControle).AddMonths(12), cloture.DateFinValidite);
+        Assert.Equal(DateOnly.FromDateTime(initial.DateControle).AddYears(2), cloture.DateFinValidite);
 
         var seconde = await inspecteur.PostAsJsonAsync($"/api/controles/{initial.Id}/contre-visite", new OuvrirContreVisiteRequete(91_000), Json);
         Assert.Equal(HttpStatusCode.Conflict, seconde.StatusCode);
@@ -211,7 +231,7 @@ public class ApiTests(CtApiFactory factory) : IClassFixture<CtApiFactory>
         var stats = await admin.GetFromJsonAsync<StatistiquesDto>("/api/statistiques/resume", Json);
 
         Assert.True(stats!.TotalControles > 0);
-        Assert.Equal(stats.TotalControles, stats.Favorables + stats.Defavorables);
+        Assert.Equal(stats.TotalControles, stats.Favorables + stats.DefavorablesMajeurs + stats.DefavorablesCritiques);
         Assert.NotEmpty(stats.ParMois);
     }
 
@@ -222,6 +242,16 @@ public class ApiTests(CtApiFactory factory) : IClassFixture<CtApiFactory>
         return page!.Elements[0].Id;
     }
 
+    private static async Task<List<PointControleDto>> CatalogueAsync(HttpClient client) =>
+        (await client.GetFromJsonAsync<List<PointControleDto>>("/api/points-controle", Json))!;
+
+    private static List<SaisiePointRequete> Saisies(ControleDto controle, List<PointControleDto> catalogue, params string[] defaillances) =>
+        catalogue.Where(p => controle.PointsASaisir.Contains(p.Id)).Select(p =>
+        {
+            var constatees = p.Defaillances.Where(d => defaillances.Contains(d.Code)).Select(d => d.Id).ToList();
+            return new SaisiePointRequete(p.Id, constatees.Count > 0 ? EtatPoint.NonConforme : EtatPoint.Conforme, constatees, null);
+        }).ToList();
+
     private static VehiculeRequete Vehicule(string immatriculation, string chassis, Guid proprietaireId) =>
-        new(immatriculation, chassis, "Peugeot", "208", 2020, TypeVehicule.VoitureParticuliere, Energie.Essence, proprietaireId);
+        new(immatriculation, chassis, "Peugeot", "208", new DateOnly(2019, 6, 1), TypeVehicule.VoitureParticuliere, Energie.Essence, proprietaireId);
 }
