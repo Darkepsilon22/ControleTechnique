@@ -28,8 +28,10 @@ public class PvService(IControleService controles) : IPvService
 
             page.Header().Column(col =>
             {
-                col.Item().Text("Procès-verbal de contrôle technique").FontSize(18).Bold();
+                col.Item().Text(controle.EstContreVisite ? "Procès-verbal de contre-visite" : "Procès-verbal de contrôle technique").FontSize(18).Bold();
                 col.Item().Text($"N° {controle.Id.ToString()[..8].ToUpperInvariant()} — {controle.DateControle:dd/MM/yyyy HH:mm}").FontColor(Colors.Grey.Darken1);
+                if (controle.DateControleInitial is { } dateInitiale)
+                    col.Item().Text($"Contre-visite du contrôle défavorable du {dateInitiale:dd/MM/yyyy}").FontColor(Colors.Grey.Darken1);
             });
 
             page.Content().PaddingVertical(15).Column(col =>
@@ -71,7 +73,9 @@ public class PvService(IControleService controles) : IPvService
                 .FontColor(favorable ? Colors.Green.Darken3 : Colors.Red.Darken3);
             col.Item().Text(controle.DateFinValidite is { } fin
                 ? $"Valide jusqu'au {fin:dd/MM/yyyy}"
-                : "Aucune date de validité : une contre-visite est nécessaire.");
+                : controle.EstContreVisite
+                    ? "Aucune date de validité : un nouveau contrôle complet est nécessaire."
+                    : "Aucune date de validité : une contre-visite est nécessaire.");
         });
     }
 
