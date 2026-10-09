@@ -7,12 +7,18 @@
             <Button DockPanel.Dock="Right" Content="‹ Retour aux contrôles" Command="{Binding RetourCommand}" Style="{StaticResource BoutonSecondaire}" Margin="0"/>
             <StackPanel>
                 <TextBlock Style="{StaticResource TitrePage}" Margin="0">
-                    <Run Text="Contrôle"/> <Run Text="{Binding Controle.Immatriculation, Mode=OneWay}"/>
+                    <Run Text="{Binding Titre, Mode=OneWay}"/> <Run Text="{Binding Controle.Immatriculation, Mode=OneWay}"/>
                 </TextBlock>
                 <TextBlock Foreground="{StaticResource TexteSecondaire}">
                     <Run Text="{Binding Controle.Vehicule, Mode=OneWay}"/> <Run Text="— propriétaire :"/> <Run Text="{Binding Controle.ProprietaireNom, Mode=OneWay}"/>
                     <Run Text="— ouvert le"/> <Run Text="{Binding Controle.DateControle, Mode=OneWay, StringFormat=dd/MM/yyyy HH:mm}"/>
                     <Run Text="par"/> <Run Text="{Binding Controle.InspecteurNom, Mode=OneWay}"/>
+                </TextBlock>
+                <TextBlock Foreground="{StaticResource Primaire}" Margin="0,2,0,0"
+                           Visibility="{Binding Controle.DateControleInitial, Converter={StaticResource NullVisibilite}}">
+                    <Run Text="Contre-visite du contrôle défavorable du"/>
+                    <Run Text="{Binding Controle.DateControleInitial, Mode=OneWay, StringFormat=dd/MM/yyyy}"/>
+                    <Run Text="— seuls les points non conformes sont revérifiés"/>
                 </TextBlock>
             </StackPanel>
         </DockPanel>

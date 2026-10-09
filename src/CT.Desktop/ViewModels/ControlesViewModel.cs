@@ -20,6 +20,8 @@ public partial class ControlesViewModel(ApiClient api, Session session, Navigati
     [ObservableProperty] private int _total;
     [ObservableProperty] private ControleResumeDto? _controleSelectionne;
     [ObservableProperty] private ControleDto? _detail;
+    [ObservableProperty] private int? _kilometrageContreVisite;
+    [ObservableProperty] private DateTime _dateContreVisite = DateTime.Today;
 
     public static IReadOnlyList<FiltreStatut> Filtres { get; } =
     [
@@ -34,6 +36,8 @@ public partial class ControlesViewModel(ApiClient api, Session session, Navigati
     public bool EstInspecteur => session.EstInspecteur;
     public bool PeutReprendre => Detail is { Statut: StatutControle.Brouillon } d && d.InspecteurId == session.Utilisateur?.Id;
     public bool PeutOuvrirPv => Detail?.Statut == StatutControle.Cloture;
+    public bool PeutOuvrirContreVisite => session.EstInspecteur
+        && Detail is { Statut: StatutControle.Cloture, Resultat: ResultatControle.Defavorable, EstContreVisite: false, ContreVisiteId: null };
 
     public override Task ChargerAsync() => RechercherAsync();
 
@@ -92,7 +96,26 @@ public partial class ControlesViewModel(ApiClient api, Session session, Navigati
     {
         OnPropertyChanged(nameof(PeutReprendre));
         OnPropertyChanged(nameof(PeutOuvrirPv));
+        OnPropertyChanged(nameof(PeutOuvrirContreVisite));
     }
+
+    [RelayCommand]
+    private async Task OuvrirContreVisiteAsync()
+    {
+        if (Detail is null || KilometrageContreVisite is null)
+        {
+            Erreur = "Saisissez le kilométrage relevé pour la contre-visite.";
+            return;
+        }
+
+        var requete = new OuvrirContreVisiteRequete(KilometrageContreVisite.Value, DateAvecHeure(DateContreVisite));
+        ControleDto? contreVisite = null;
+        if (await ExecuterAsync(async () => contreVisite = await api.OuvrirContreVisiteAsync(Detail.Id, requete)))
+            await navigation.NaviguerAsync<SaisieControleViewModel>(vm => vm.ChargerAsync(contreVisite!.Id));
+    }
+
+    public static DateTime? DateAvecHeure(DateTime date) =>
+        date.Date == DateTime.Today ? null : date.Date.Add(DateTime.Now.TimeOfDay);
 
     [RelayCommand]
     private Task ReprendreAsync() =>
